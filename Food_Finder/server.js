@@ -5,10 +5,12 @@
 // =====================================================================
 
 const express = require('express');
+const path = require('path');
 
 const app = express();
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+const THEMEALDB_BASE = 'https://www.themealdb.com/api/json/v1/1';
 
 
 // =====================================================================
@@ -17,7 +19,7 @@ const PORT = 3000;
 
 app.use(express.json());
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 
 // =====================================================================
@@ -105,6 +107,44 @@ async function fetchJSON(url) {
 // =====================================================================
 // LOAD MEALS
 // =====================================================================
+
+function normalizeMeal(meal) {
+  return {
+    id: Number(meal.idMeal ?? meal.id),
+    name: meal.strMeal ?? meal.name ?? '',
+    category: meal.strCategory ?? meal.category ?? '',
+    area: meal.strArea ?? meal.area ?? '',
+    instructions: meal.strInstructions ?? meal.instructions ?? '',
+    image: meal.strMealThumb ?? meal.image ?? ''
+  };
+}
+
+
+async function fetchFilterMeals(kind, value) {
+  const key = kind === 'category' ? 'c' : 'a';
+  const data = await fetchJSON(
+    `${THEMEALDB_BASE}/filter.php?${key}=${encodeURIComponent(value)}`
+  );
+  return (data.meals || []).map(meal => ({
+    ...meal,
+    strCategory: kind === 'category' ? value : '',
+    strArea: kind === 'area' ? value : ''
+  }));
+}
+
+
+async function getMealById(id) {
+  const cachedMeal = meals.find(meal => meal.id === Number(id));
+  if (cachedMeal) return cachedMeal;
+
+  const data = await fetchJSON(
+    `${THEMEALDB_BASE}/lookup.php?i=${encodeURIComponent(id)}`
+  );
+  return data.meals && data.meals[0]
+    ? normalizeMeal(data.meals[0])
+    : null;
+}
+
 
 async function loadMeals() {
 
@@ -483,6 +523,143 @@ app.get(
 
 
 // =====================================================================
+// SEARCH, FILTER, CATEGORY, AND AREA API
+// =====================================================================
+
+app.get('/api/search', async (req, res) => {
+  const keyword = String(req.query.q || '').trim();
+  if (!keyword) {
+    return res.status(400).json({
+      success: false,
+      message: 'กรุณาระบุคำค้นหา'
+    });
+  }
+
+  try {
+    const data = await fetchJSON(
+      `${THEMEALDB_BASE}/search.php?s=${encodeURIComponent(keyword)}`
+    );
+    const result = (data.meals || []).map(normalizeMeal);
+    res.json({
+      success: true,
+      count: result.length,
+      keyword,
+      message: result.length ? undefined : `ไม่พบเมนูอาหารที่ค้นหา "${keyword}"`,
+      data: result
+    });
+  } catch (error) {
+    console.error('Search Error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการค้นหาอาหาร'
+    });
+  }
+});
+
+
+app.get('/api/categories', async (req, res) => {
+  try {
+    const data = await fetchJSON(`${THEMEALDB_BASE}/list.php?c=list`);
+    const categories = (data.meals || []).map(item => item.strCategory);
+    res.json({ success: true, count: categories.length, data: categories });
+  } catch (error) {
+    console.error('Category Error:', error.message);
+    res.status(500).json({ success: false, message: 'ไม่สามารถโหลด Category ได้' });
+  }
+});
+
+
+app.get('/api/areas', async (req, res) => {
+  try {
+    const data = await fetchJSON(`${THEMEALDB_BASE}/list.php?a=list`);
+    const areas = (data.meals || []).map(item => item.strArea);
+    res.json({ success: true, count: areas.length, data: areas });
+  } catch (error) {
+    console.error('Area Error:', error.message);
+    res.status(500).json({ success: false, message: 'ไม่สามารถโหลด Area ได้' });
+  }
+});
+
+
+app.get('/api/meals', async (req, res) => {
+  const search = String(req.query.search || '').trim();
+  const category = String(req.query.category || '').trim();
+  const area = String(req.query.area || '').trim();
+
+  try {
+    let result;
+    if (search) {
+      const data = await fetchJSON(
+        `${THEMEALDB_BASE}/search.php?s=${encodeURIComponent(search)}`
+      );
+      result = data.meals || [];
+    } else if (category && area) {
+      const [categoryMeals, areaMeals] = await Promise.all([
+        fetchFilterMeals('category', category),
+        fetchFilterMeals('area', area)
+      ]);
+      const areaIds = new Set(areaMeals.map(meal => String(meal.idMeal)));
+      result = categoryMeals.filter(meal => areaIds.has(String(meal.idMeal)));
+      result = result.map(meal => ({ ...meal, strArea: area }));
+    } else if (category) {
+      result = await fetchFilterMeals('category', category);
+    } else if (area) {
+      result = await fetchFilterMeals('area', area);
+    } else {
+      result = meals.map(meal => ({
+        idMeal: meal.id,
+        strMeal: meal.name,
+        strCategory: meal.category,
+        strArea: meal.area,
+        strInstructions: meal.instructions,
+        strMealThumb: meal.image
+      }));
+    }
+
+    if (search && category) {
+      result = result.filter(meal => meal.strCategory === category);
+    }
+    if (search && area) {
+      result = result.filter(meal => meal.strArea === area);
+    }
+
+    const normalized = result.map(normalizeMeal);
+    res.json({
+      success: true,
+      count: normalized.length,
+      message: normalized.length ? undefined : 'ไม่พบเมนูอาหารตามเงื่อนไขที่ค้นหา',
+      data: normalized
+    });
+  } catch (error) {
+    console.error('Meals API Error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการโหลดข้อมูลอาหาร'
+    });
+  }
+});
+
+
+app.get('/api/meals/:id', async (req, res) => {
+  try {
+    const meal = await getMealById(req.params.id);
+    if (!meal) {
+      return res.status(404).json({
+        success: false,
+        message: 'ไม่พบข้อมูลเมนูนี้'
+      });
+    }
+    res.json({ success: true, data: meal });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'ไม่สามารถโหลดรายละเอียดเมนูได้'
+    });
+  }
+});
+
+
+// =====================================================================
 // QUEUE
 // คิวเมนูอาหาร
 // =====================================================================
@@ -581,21 +758,20 @@ app.get(
 
 app.post(
   '/watchlist',
-  (req, res) => {
+  async (req, res) => {
 
     try {
 
       const id =
         Number(req.body.id);
 
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({
+          error: 'รหัสเมนูไม่ถูกต้อง'
+        });
+      }
 
-      // ค้นหาเมนูจาก ID
-
-      const meal =
-        meals.find(
-          item =>
-            item.id === id
-        );
+      const meal = await getMealById(id);
 
 
       if (!meal) {
@@ -893,7 +1069,13 @@ app.post(
         last.action === 'ADD'
       ) {
 
-        watchlist.items.pop();
+        const index = watchlist.items
+          .map(item => item.id)
+          .lastIndexOf(last.meal.id);
+
+        if (index !== -1) {
+          watchlist.items.splice(index, 1);
+        }
 
       }
 

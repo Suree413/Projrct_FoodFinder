@@ -1,7 +1,7 @@
 {
   "name": "801201-week8",
   "version": "1.0.0",
-  "description": "Week 8 - Stack + External REST API (Rick and Morty)",
+  "description": "Food Finder meal dashboard with TheMealDB search, filters, sorting, queue, and history",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

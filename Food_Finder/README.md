@@ -1,24 +1,36 @@
-# 801201 Week 8 — Stack + External REST API (Answer Key)
+# Food Finder
 
-> เฉลยครบทุก TODO — ห้ามแจกก่อนจบคาบ
+เว็บค้นหาเมนูอาหารจาก TheMealDB พร้อมค้นหาและกรองเมนู, เรียงลำดับด้วย Selection/Insertion/Bubble Sort, คิวเมนูแบบ FIFO และประวัติ/Undo แบบ Stack
 
 ## เริ่มต้น
-```bash
+
+ใช้ Node.js 18 ขึ้นไป จากโฟลเดอร์ `Food_Finder`:
+
+```powershell
+cd Food_Finder
 npm install
-node server.js   # เปิด http://localhost:3000
+npm start
 ```
-ถ้า console ขึ้น `⚠️ ใช้ไฟล์สำรอง characters.json` แปลว่าต่อ API ภายนอกไม่ได้
-ระบบยังทำงานครบทุก endpoint ด้วยข้อมูล 20 ตัวละครจากไฟล์
 
-## จุดที่นักศึกษามักพลาด
-- **TODO 2** ลืมแก้เงื่อนไขเปรียบเทียบเป็นมาก→น้อย ได้ผลกลับด้าน
-- **TODO 3b/3d** ลืมบันทึกลง history → กด Undo แล้วไม่มีอะไรเกิดขึ้น
-- **TODO 4a** เขียน `this.items.shift()` แทน `pop()` → กลายเป็น Queue ไม่ใช่ Stack
-- **TODO 4f** undo ของ `ADD` คือ `items.pop()` ไม่ใช่ `dequeue()` — จุดนี้คือแก่นของ Reflection ข้อ 1
-- **TODO 5** ลืมใส่ `await` หน้า `Promise.all` → ได้ Promise แทน Response
+เปิด `http://localhost:3000` หากพอร์ต 3000 ถูกใช้งาน สามารถเลือกพอร์ตอื่นได้:
 
-## ลำดับการเดโมหน้าชั้น
-1. เพิ่ม 3 ตัวละครเข้าคิว → ชี้ให้เห็นลำดับ FIFO
-2. กด "ดูตัวถัดไป" → ตัวแรกหายไป
-3. กด Undo → ตัวนั้นกลับมาอยู่ **หัวคิว** ไม่ใช่ท้ายคิว
-4. กด Undo อีกครั้ง → ตัวที่เพิ่มล่าสุดหายไป (ไม่ใช่ตัวแรก) = LIFO
+```powershell
+$env:PORT=3001
+npm start
+```
+
+## API
+
+- `GET /meals?sort=selection|insertion|bubble` โหลดเมนูเริ่มต้นและเรียงลำดับ
+- `GET /api/search?q=chicken` ค้นหาเมนู
+- `GET /api/categories` และ `GET /api/areas` โหลดตัวเลือกตัวกรอง
+- `GET /api/meals?search=chicken&category=Chicken&area=Thai` ค้นหาและกรอง
+- `GET /api/meals/:id` โหลดรายละเอียดเมนู
+- `GET /watchlist`, `POST /watchlist`, `DELETE /watchlist/process` จัดการคิว
+- `GET /history` และ `POST /undo` ดูประวัติและย้อนการกระทำล่าสุด
+
+ข้อมูลอาหารและรายการ Category/Area มาจาก TheMealDB โดยตรง การค้นหาและตัวกรองจึงต้องเชื่อมต่ออินเทอร์เน็ต
+
+## โครงสร้าง
+
+ชุดแอปที่ใช้งานคือ `server.js`, `public/index.html` และ `public/dashboard.js` ภายในโฟลเดอร์นี้ ไฟล์ชื่อเดียวกันที่ระดับ workspace root เป็นสำเนาเดิมและไม่ได้ถูกใช้เมื่อเริ่มแอปจากโฟลเดอร์ `Food_Finder`.

@@ -19,103 +19,42 @@
     }
 
     * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      background: var(--page);
-      color: var(--ink);
-      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-    }
-
-    header {
-      padding: 22px 32px;
-      background: var(--forest);
-      border-bottom: 4px solid var(--plum);
-      color: #f6f4e9;
-    }
-
+    body { margin: 0; background: var(--page); color: var(--ink); font-family: "Trebuchet MS", "Segoe UI", sans-serif; }
+    header { padding: 22px 32px; background: var(--forest); border-bottom: 4px solid var(--plum); color: #f6f4e9; }
     .header-inner, .layout { max-width: 1440px; margin: 0 auto; }
     header h1 { margin: 0; font: 600 28px Georgia, "Times New Roman", serif; }
     header p { margin: 5px 0 0; color: #dce4d4; font-size: 14px; }
-
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(270px, 320px);
-      gap: 18px;
-      padding: 22px 32px;
-      align-items: start;
-    }
-
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 320px); gap: 18px; padding: 22px 32px; align-items: start; }
     .food-column, .sidebar { min-width: 0; }
-    .panel, .search-panel {
-      padding: 18px;
-      border: 1px solid rgba(78, 98, 83, 0.14);
-      border-radius: 8px;
-      background: var(--panel);
-      box-shadow: 0 8px 24px rgba(48, 58, 49, 0.06);
-    }
-
+    .panel, .search-panel { padding: 18px; border: 1px solid rgba(78, 98, 83, 0.14); border-radius: 8px; background: var(--panel); box-shadow: 0 8px 24px rgba(48, 58, 49, 0.06); }
     .search-panel { margin-bottom: 16px; }
-    .search-row, .filter-row, .toolbar, .sort-buttons {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .search-row, .filter-row, .toolbar, .sort-buttons { display: flex; align-items: center; gap: 8px; }
     .search-row { margin-bottom: 10px; }
     .filter-row { display: grid; grid-template-columns: 1fr 1fr auto; }
-    .toolbar { justify-content: space-between; margin-bottom: 14px; }
+    .toolbar { justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; }
     .sort-buttons { flex-wrap: wrap; }
-
-    input, select, button {
-      min-height: 38px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 7px 12px;
-      background: transparent;
-      color: var(--ink);
-      font: inherit;
-    }
-    input, select { background: rgba(255, 255, 255, 0.38); }
+    input, select, button { min-height: 38px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; background: rgba(255, 255, 255, 0.38); color: var(--ink); font: inherit; }
     input { flex: 1; min-width: 0; }
     button { cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease; }
     button:hover { background: rgba(78, 98, 83, 0.1); border-color: var(--forest); transform: translateY(-1px); }
     button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
-    .search-button, .action-button {
-      background: var(--plum);
-      border-color: var(--plum);
-      color: var(--gold);
-    }
+    .search-button, .action-button { background: var(--plum); border-color: var(--plum); color: #fff; }
     .search-button:hover, .action-button:hover { background: #91697a; border-color: #91697a; }
     .reset-button { white-space: nowrap; }
-    #sortInfo { color: var(--muted); font-size: 13px; }
-
+    #sortInfo, #resultInfo { color: var(--muted); font-size: 13px; }
+    #resultInfo { margin: 0 0 10px; }
     #meals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-    .meal-card {
-      overflow: hidden;
-      border: 1px solid rgba(78, 98, 83, 0.14);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.56);
-      box-shadow: 0 4px 14px rgba(48, 58, 49, 0.06);
-      transition: transform 160ms ease, box-shadow 160ms ease;
-    }
+    .meal-card { overflow: hidden; border: 1px solid rgba(78, 98, 83, 0.14); border-radius: 8px; background: rgba(255, 255, 255, 0.56); box-shadow: 0 4px 14px rgba(48, 58, 49, 0.06); transition: transform 160ms ease, box-shadow 160ms ease; }
     .meal-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(48, 58, 49, 0.12); }
     .meal-image-wrapper { aspect-ratio: 1 / 1; overflow: hidden; background: rgba(78, 98, 83, 0.1); }
     .meal-image { display: block; width: 100%; height: 100%; object-fit: cover; }
     .meal-content { padding: 12px; }
     .meal-name { min-height: 42px; margin: 0 0 9px; font-size: 15px; line-height: 1.4; }
     .meal-meta, .detail-badge-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-    .tag, .detail-badge {
-      padding: 4px 9px;
-      border-radius: 6px;
-      background: var(--plum);
-      color: var(--gold);
-      font-size: 12px;
-      font-weight: 600;
-    }
+    .tag, .detail-badge { padding: 4px 9px; border-radius: 6px; background: var(--plum); color: #fff; font-size: 12px; font-weight: 600; }
     .meal-actions { display: flex; gap: 6px; }
     .meal-actions button { flex: 1; padding-inline: 7px; font-size: 12px; }
     .meal-actions .primary { border-color: var(--forest); color: var(--forest); }
-
     .panel h2 { margin: 0 0 12px; padding-bottom: 9px; border-bottom: 1px solid var(--line); color: var(--forest); font-size: 16px; }
     .panel h3 { color: var(--forest); }
     #detailView { display: none; }
@@ -123,12 +62,11 @@
     .detail-img { width: 100%; max-height: 360px; border-radius: 8px; object-fit: cover; }
     .detail-title { margin: 0; color: var(--forest); font-size: 22px; }
     .detail-badge-group { margin: 0; }
-    .ingredients-section { padding: 12px 14px; border: 1px solid var(--coral); border-radius: 12px; background: rgba(255, 255, 255, 0.22); }
+    .ingredients-section { padding: 12px 14px; border: 1px solid var(--coral); border-radius: 8px; background: rgba(255, 255, 255, 0.22); }
     .ingredients-heading { margin: 0 0 8px; color: #754b50; font-size: 16px; }
     .ingredients-list { padding-left: 20px; list-style: disc; }
     .ingredients-list li { padding: 3px 0; border: 0; }
     .instructions-text { color: var(--ink); font-size: 14px; line-height: 1.6; white-space: pre-line; }
-
     .sidebar .panel + .panel { margin-top: 16px; }
     .sidebar .toolbar { justify-content: flex-start; margin-bottom: 8px; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; background: rgba(164, 122, 139, 0.2); color: var(--forest); font-size: 12px; }
@@ -136,29 +74,13 @@
     li { padding: 7px 4px; border-bottom: 1px solid rgba(78, 98, 83, 0.14); }
     li span { float: right; color: var(--muted); font-size: 11px; }
     li.empty { color: var(--muted); font-style: italic; }
-
     .loading, .empty-state { grid-column: 1 / -1; padding: 45px 16px; text-align: center; }
     .spinner { width: 36px; height: 36px; margin: 0 auto; border: 4px solid var(--line); border-top-color: var(--plum); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #error { display: none; max-width: 1376px; margin: 12px auto 0; padding: 10px 14px; border-radius: 6px; background: #fff0eb; color: #9c3e35; }
-
     @media (max-width: 1100px) { #meals { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    @media (max-width: 850px) {
-      .layout { grid-template-columns: 1fr; padding: 18px 22px; }
-      .sidebar { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-      .sidebar .panel + .panel { margin-top: 0; }
-    }
-    @media (max-width: 600px) {
-      header { padding: 18px 20px; }
-      .layout { padding: 14px 16px; }
-      .filter-row { grid-template-columns: 1fr; }
-      .search-row { align-items: stretch; }
-      #meals { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-      .meal-content { padding: 9px; }
-      .meal-actions { flex-direction: column; }
-      .sidebar { grid-template-columns: 1fr; }
-      #error { margin-inline: 16px; }
-    }
+    @media (max-width: 850px) { .layout { grid-template-columns: 1fr; padding: 18px 22px; } .sidebar { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } .sidebar .panel + .panel { margin-top: 0; } }
+    @media (max-width: 600px) { header { padding: 18px 20px; } .layout { padding: 14px 16px; } .filter-row { grid-template-columns: 1fr; } .search-row { align-items: stretch; } #meals { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .meal-content { padding: 9px; } .meal-actions { flex-direction: column; } .sidebar { grid-template-columns: 1fr; } #error { margin-inline: 16px; } }
     @media (max-width: 380px) { #meals { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -181,10 +103,10 @@
             <button class="search-button" onclick="searchMeals()">ค้นหา</button>
           </div>
           <div class="filter-row">
-            <select id="categoryFilter" aria-label="กรองตาม Category" onchange="applyCurrentFilters()">
+            <select id="categoryFilter" aria-label="กรองตาม Category" onchange="loadSearchResults()">
               <option value="">ทุก Category</option>
             </select>
-            <select id="areaFilter" aria-label="กรองตาม Area" onchange="applyCurrentFilters()">
+            <select id="areaFilter" aria-label="กรองตาม Area" onchange="loadSearchResults()">
               <option value="">ทุก Area</option>
             </select>
             <button class="reset-button" onclick="resetFilter()">ล้าง Filter</button>
@@ -197,8 +119,14 @@
               <button onclick="sortAZ()">A–Z</button>
               <button onclick="sortZA()">Z–A</button>
             </div>
+            <select id="algo" onchange="sortAndRender(currentMeals)" aria-label="อัลกอริทึมเรียงลำดับ">
+              <option value="selection">Selection Sort</option>
+              <option value="insertion">Insertion Sort</option>
+              <option value="bubble">Bubble Sort</option>
+            </select>
             <span id="sortInfo">กำลังโหลด...</span>
           </div>
+          <p id="resultInfo" aria-live="polite"></p>
           <div id="meals">
             <div class="loading"><div class="spinner"></div><p>กำลังโหลดเมนูอาหาร...</p></div>
           </div>
@@ -207,7 +135,7 @@
 
       <section id="detailView" class="panel">
         <div class="toolbar">
-          <button class="action-button" onclick="goBack()">back</button>
+          <button class="action-button" onclick="goBack()">กลับ</button>
         </div>
         <div id="recipeDetailContent" class="detail-container"></div>
       </section>
@@ -216,12 +144,12 @@
     <aside class="sidebar">
       <section class="panel">
         <h2>คิวเมนูที่เลือก <span class="badge" id="queueSize">0</span></h2>
-        <div class="toolbar"><button class="action-button" onclick="processQueue()">Next menu</button></div>
+        <div class="toolbar"><button class="action-button" onclick="processQueue()">เลือกเมนูถัดไป</button></div>
         <ul id="watchlist"><li class="empty">กำลังโหลดคิว...</li></ul>
       </section>
       <section class="panel">
         <h2>ประวัติ (Stack)</h2>
-        <div class="toolbar"><button class="action-button" onclick="undo()">undo</button></div>
+        <div class="toolbar"><button class="action-button" onclick="undo()">Undo</button></div>
         <ul id="history"><li class="empty">กำลังโหลดประวัติ...</li></ul>
       </section>
     </aside>
