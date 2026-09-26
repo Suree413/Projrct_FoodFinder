@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Week 8 — Meal Dashboard</title>
+
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+
+    body {
+
+      font-family:
+        Arial,
+        "TH Sarabun New",
+        sans-serif;
+
+      margin: 0;
+
+      background: #F3F4F6;
+
+      color: #111827;
+
+    }
+
+
+    header {
+
+      background: #1E40AF;
+
+      color: #fff;
+
+      padding: 16px 24px;
+
+    }
+
+
+    header h1 {
+
+      margin: 0;
+
+      font-size: 20px;
+
+    }
+
+
+    header p {
+
+      margin: 4px 0 0;
+
+      font-size: 13px;
+
+      color: #BFD9FF;
+
+    }
+
+
+    .layout {
+
+      display: grid;
+
+      grid-template-columns: 2fr 1fr;
+
+      gap: 16px;
+
+      padding: 16px 24px;
+
+    }
+
+
+    .panel {
+
+      background: #fff;
+
+      border-radius: 8px;
+
+      padding: 14px;
+
+    }
+
+
+    .panel h2 {
+
+      margin: 0 0 10px;
+
+      font-size: 15px;
+
+      color: #1E40AF;
+
+      border-bottom:
+        2px solid #E0F2FE;
+
+      padding-bottom: 6px;
+
+    }
+
+
+    #error {
+
+      display: none;
+
+      background: #FEE2E2;
+
+      color: #DC2626;
+
+      padding: 10px;
+
+      margin: 0 24px;
+
+      border-radius: 6px;
+
+      font-size: 13px;
+
+    }
+
+
+    .toolbar {
+
+      display: flex;
+
+      gap: 8px;
+
+      align-items: center;
+
+      margin-bottom: 10px;
+
+    }
+
+
+    select,
+    button {
+
+      font: inherit;
+
+      padding: 6px 12px;
+
+      border-radius: 6px;
+
+      border:
+        1px solid #CBD5E1;
+
+      background: #fff;
+
+      cursor: pointer;
+
+    }
+
+
+    button.primary {
+
+      background: #0F766E;
+
+      color: #fff;
+
+      border-color: #0F766E;
+
+    }
+
+
+    button.warn {
+
+      background: #DC2626;
+
+      color: #fff;
+
+      border-color: #DC2626;
+
+    }
+
+
+    #sortInfo {
+
+      font-size: 12px;
+
+      color: #6B7280;
+
+      margin-left: auto;
+
+    }
+
+
+    .card {
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 10px;
+
+      padding: 8px;
+
+      border-bottom:
+        1px solid #F3F4F6;
+
+    }
+
+
+    .card img {
+
+      width: 60px;
+
+      height: 60px;
+
+      border-radius: 6px;
+
+      object-fit: cover;
+
+    }
+
+
+    .card .info {
+
+      display: flex;
+
+      flex-direction: column;
+
+      flex: 1;
+
+    }
+
+
+    .card .meta {
+
+      font-size: 12px;
+
+      color: #6B7280;
+
+      margin-top: 3px;
+
+    }
+
+
+    .card button {
+
+      margin-left: auto;
+
+      white-space: nowrap;
+
+    }
+
+
+    ul {
+
+      list-style: none;
+
+      padding: 0;
+
+      margin: 0;
+
+      font-size: 13px;
+
+    }
+
+
+    li {
+
+      padding: 6px 4px;
+
+      border-bottom:
+        1px solid #F3F4F6;
+
+    }
+
+
+    li span {
+
+      float: right;
+
+      color: #6B7280;
+
+      font-size: 11px;
+
+    }
+
+
+    li.empty {
+
+      color: #9CA3AF;
+
+      font-style: italic;
+
+    }
+
+
+    .badge {
+
+      background: #DBEAFE;
+
+      color: #1E40AF;
+
+      border-radius: 10px;
+
+      padding: 1px 8px;
+
+      font-size: 12px;
+
+    }
+
+
+    @media (max-width: 700px) {
+
+      .layout {
+
+        grid-template-columns: 1fr;
+
+      }
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+
+  <header>
+
+    <h1>Meal Dashboard</h1>
+
+    <p>
+      801201 Week 8 ·
+      Sort (W5) + Queue (W6) + Stack (W8) ·
+      ข้อมูลจาก TheMealDB API
+    </p>
+
+  </header>
+
+
+  <div id="error"></div>
+
+
+  <div class="layout">
+
+
+    <!-- เมนูอาหาร -->
+
+    <div class="panel">
+
+      <h2>
+        เมนูอาหาร — เรียงตามชื่อเมนู
+      </h2>
+
+
+      <div class="toolbar">
+
+        <select
+          id="algo"
+          onchange="loadDashboard()"
+        >
+
+          <option value="selection">
+            Selection Sort
+          </option>
+
+          <option value="insertion">
+            Insertion Sort
+          </option>
+
+          <option value="bubble">
+            Bubble Sort
+          </option>
+
+        </select>
+
+
+        <span id="sortInfo"></span>
+
+      </div>
+
+
+      <div id="meals"></div>
+
+    </div>
+
+
+    <!-- Queue และ Stack -->
+
+    <div>
+
+
+      <!-- Queue -->
+
+      <div
+        class="panel"
+        style="margin-bottom:16px"
+      >
+
+        <h2>
+
+          คิวเมนูที่เลือก
+
+          <span
+            class="badge"
+            id="queueSize"
+          >
+            0
+          </span>
+
+        </h2>
+
+
+        <div class="toolbar">
+
+          <button
+            class="primary"
+            onclick="processQueue()"
+          >
+
+            เลือกเมนูถัดไป
+            (dequeue)
+
+          </button>
+
+        </div>
+
+
+        <ul id="watchlist"></ul>
+
+      </div>
+
+
+      <!-- Stack -->
+
+      <div class="panel">
+
+        <h2>
+          ประวัติ (Stack)
+        </h2>
+
+
+        <div class="toolbar">
+
+          <button
+            class="warn"
+            onclick="undo()"
+          >
+
+            ↩ Undo (pop)
+
+          </button>
+
+        </div>
+
+
+        <ul id="history"></ul>
+
+      </div>
+
+
+    </div>
+
+  </div>
+
+
+  <script src="dashboard.js"></script>
+
+</body>
+
+</html>
