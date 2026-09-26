@@ -1,425 +1,637 @@
 // ================================================================
-// โหลดและแสดงเมนู
+// Food Finder
+// Meal Card + Sort + Filter + Loading + Empty State
+// ================================================================
+
+let allMeals = [];
+let currentMeals = [];
+let sortOrder = 'az';
+
+
+// ================================================================
+// LOAD MEALS
 // ================================================================
 
 async function loadDashboard() {
 
-  const algo =
-    document.getElementById('algo').value;
+  const container = document.getElementById('meals');
+  const errorBox = document.getElementById('error');
 
-  const errorBox =
-    document.getElementById('error');
+  // Loading State
+  container.innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>กำลังโหลดเมนูอาหาร...</p>
+    </div>
+  `;
 
+  errorBox.style.display = 'none';
 
   try {
 
-    const res =
-      await fetch(
-        `/meals?sort=${algo}`
-      );
+    // เรียกข้อมูลจาก Server
+    const res = await fetch('/meals');
 
-
-    const result =
-      await res.json();
-
+    const result = await res.json();
 
     if (!res.ok) {
-
       throw new Error(
-        result.error ||
-        'โหลดข้อมูลไม่สำเร็จ'
+        result.error || 'โหลดข้อมูลไม่สำเร็จ'
       );
-
     }
 
+    allMeals = result.data || [];
 
-    // แสดงข้อมูล Sort
+    currentMeals = [...allMeals];
 
-    document.getElementById(
-      'sortInfo'
-    ).textContent =
-      `${result.count} เมนู · ${result.ms} ms`;
+    // สร้าง Filter
+    createFilters(allMeals);
+
+    // แสดงข้อมูล
+    renderMeals();
+
+  } catch (error) {
+
+    console.error(error);
+
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <h3>โหลดข้อมูลไม่สำเร็จ</h3>
+        <p>${escapeHtml(error.message)}</p>
+        <button onclick="loadDashboard()">
+          ลองใหม่
+        </button>
+      </div>
+    `;
+
+    showError(error.message);
+  }
+}
 
 
-    const container =
-      document.getElementById('meals');
+// ================================================================
+// CREATE FILTER
+// ================================================================
+
+function createFilters(meals) {
+
+  const categorySelect =
+    document.getElementById('categoryFilter');
+
+  const areaSelect =
+    document.getElementById('areaFilter');
 
 
-    // ถ้าไม่มีข้อมูล
+  // ล้างค่าเดิม
+  categorySelect.innerHTML =
+    '<option value="">ทุก Category</option>';
+
+  areaSelect.innerHTML =
+    '<option value="">ทุก Area</option>';
+
+
+  // เก็บ Category
+  const categories = [];
+  const areas = [];
+
+
+  for (let i = 0; i < meals.length; i++) {
+
+    const category = meals[i].category;
+    const area = meals[i].area;
+
 
     if (
-      result.data.length === 0
+      category &&
+      !containsValue(categories, category)
+    ) {
+      categories.push(category);
+    }
+
+
+    if (
+      area &&
+      !containsValue(areas, area)
+    ) {
+      areas.push(area);
+    }
+
+  }
+
+
+  // เพิ่ม Category
+  for (let i = 0; i < categories.length; i++) {
+
+    categorySelect.innerHTML += `
+      <option value="${escapeHtml(categories[i])}">
+        ${escapeHtml(categories[i])}
+      </option>
+    `;
+
+  }
+
+
+  // เพิ่ม Area
+  for (let i = 0; i < areas.length; i++) {
+
+    areaSelect.innerHTML += `
+      <option value="${escapeHtml(areas[i])}">
+        ${escapeHtml(areas[i])}
+      </option>
+    `;
+
+  }
+
+}
+
+
+// ================================================================
+// CHECK VALUE
+// ไม่ใช้ includes()
+// ================================================================
+
+function containsValue(arr, value) {
+
+  for (let i = 0; i < arr.length; i++) {
+
+    if (arr[i] === value) {
+      return true;
+    }
+
+  }
+
+  return false;
+}
+
+
+// ================================================================
+// FILTER
+// ================================================================
+
+function applyFilter() {
+
+  const category =
+    document.getElementById(
+      'categoryFilter'
+    ).value;
+
+
+  const area =
+    document.getElementById(
+      'areaFilter'
+    ).value;
+
+
+  currentMeals = [];
+
+
+  for (let i = 0; i < allMeals.length; i++) {
+
+    const meal = allMeals[i];
+
+
+    const categoryMatch =
+      category === '' ||
+      meal.category === category;
+
+
+    const areaMatch =
+      area === '' ||
+      meal.area === area;
+
+
+    if (
+      categoryMatch &&
+      areaMatch
     ) {
 
-      container.innerHTML =
-        '<div class="card">ไม่พบข้อมูลเมนู</div>';
+      currentMeals.push(meal);
 
-      return;
+    }
+
+  }
+
+
+  renderMeals();
+}
+
+
+// ================================================================
+// SEARCH
+// ================================================================
+
+function searchMeals() {
+
+  const keyword =
+    document.getElementById(
+      'searchInput'
+    ).value.trim().toLowerCase();
+
+
+  currentMeals = [];
+
+
+  if (keyword === '') {
+
+    currentMeals = [...allMeals];
+
+  } else {
+
+    for (let i = 0; i < allMeals.length; i++) {
+
+      const name =
+        String(allMeals[i].name)
+          .toLowerCase();
+
+
+      if (name.indexOf(keyword) !== -1) {
+
+        currentMeals.push(
+          allMeals[i]
+        );
+
+      }
+
+    }
+
+  }
+
+
+  // ใช้ Filter ต่อหลัง Search
+  applyCurrentFilters();
+}
+
+
+// ================================================================
+// FILTER CURRENT DATA
+// ================================================================
+
+function applyCurrentFilters() {
+
+  const keyword =
+    document.getElementById(
+      'searchInput'
+    ).value.trim().toLowerCase();
+
+
+  const category =
+    document.getElementById(
+      'categoryFilter'
+    ).value;
+
+
+  const area =
+    document.getElementById(
+      'areaFilter'
+    ).value;
+
+
+  currentMeals = [];
+
+
+  for (let i = 0; i < allMeals.length; i++) {
+
+    const meal = allMeals[i];
+
+    const name =
+      String(meal.name).toLowerCase();
+
+
+    const searchMatch =
+      keyword === '' ||
+      name.indexOf(keyword) !== -1;
+
+
+    const categoryMatch =
+      category === '' ||
+      meal.category === category;
+
+
+    const areaMatch =
+      area === '' ||
+      meal.area === area;
+
+
+    if (
+      searchMatch &&
+      categoryMatch &&
+      areaMatch
+    ) {
+
+      currentMeals.push(meal);
+
+    }
+
+  }
+
+
+  renderMeals();
+}
+
+
+// ================================================================
+// SORT A-Z
+// LOGIC เอง - ไม่ใช้ Array.sort()
+// ================================================================
+
+function sortAZ() {
+
+  sortOrder = 'az';
+
+  currentMeals =
+    selectionSort(
+      currentMeals,
+      false
+    );
+
+  renderMeals();
+}
+
+
+// ================================================================
+// SORT Z-A
+// LOGIC เอง - ไม่ใช้ Array.sort()
+// ================================================================
+
+function sortZA() {
+
+  sortOrder = 'za';
+
+  currentMeals =
+    selectionSort(
+      currentMeals,
+      true
+    );
+
+  renderMeals();
+}
+
+
+// ================================================================
+// SELECTION SORT
+// เขียน Algorithm เอง
+// ================================================================
+
+function selectionSort(arr, descending) {
+
+  const result = [];
+
+  // copy ข้อมูลทีละตัว
+  for (let i = 0; i < arr.length; i++) {
+    result.push(arr[i]);
+  }
+
+
+  for (
+    let i = 0;
+    i < result.length - 1;
+    i++
+  ) {
+
+    let selectedIndex = i;
+
+
+    for (
+      let j = i + 1;
+      j < result.length;
+      j++
+    ) {
+
+      const currentName =
+        String(result[j].name)
+          .toLowerCase();
+
+
+      const selectedName =
+        String(result[selectedIndex].name)
+          .toLowerCase();
+
+
+      if (descending) {
+
+        if (
+          currentName > selectedName
+        ) {
+
+          selectedIndex = j;
+
+        }
+
+      } else {
+
+        if (
+          currentName < selectedName
+        ) {
+
+          selectedIndex = j;
+
+        }
+
+      }
 
     }
 
 
-    // แสดงเมนู
+    // Swap
+    if (selectedIndex !== i) {
 
-    container.innerHTML =
-      result.data.map(meal => `
+      const temp =
+        result[i];
 
-        <div class="card">
+      result[i] =
+        result[selectedIndex];
+
+      result[selectedIndex] =
+        temp;
+
+    }
+
+  }
+
+
+  return result;
+}
+
+
+// ================================================================
+// RENDER MEAL CARDS
+// ================================================================
+
+function renderMeals() {
+
+  const container =
+    document.getElementById('meals');
+
+
+  // Empty State
+  if (
+    currentMeals.length === 0
+  ) {
+
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🍽️</div>
+        <h3>ไม่พบเมนูอาหาร</h3>
+        <p>
+          ลองเปลี่ยนคำค้นหา หรือเลือก Filter ใหม่
+        </p>
+      </div>
+    `;
+
+    updateSortInfo();
+
+    return;
+  }
+
+
+  // แสดง Meal Card
+  let html = '';
+
+
+  for (
+    let i = 0;
+    i < currentMeals.length;
+    i++
+  ) {
+
+    const meal =
+      currentMeals[i];
+
+
+    html += `
+      <div class="meal-card">
+
+        <div class="meal-image-wrapper">
 
           <img
-            src="${meal.image}"
+            src="${escapeHtml(meal.image)}"
             alt="${escapeHtml(meal.name)}"
+            class="meal-image"
+            loading="lazy"
           >
 
-
-          <div class="info">
-
-            <strong>
-              ${escapeHtml(meal.name)}
-            </strong>
+        </div>
 
 
-            <div class="meta">
+        <div class="meal-content">
 
+          <h3 class="meal-name">
+            ${escapeHtml(meal.name)}
+          </h3>
+
+
+          <div class="meal-meta">
+
+            <span class="tag">
               ${escapeHtml(
                 meal.category ||
-                'ไม่ระบุหมวดหมู่'
+                'ไม่ระบุ Category'
               )}
+            </span>
 
-              ·
 
+            <span class="tag area">
+              🌍
               ${escapeHtml(
                 meal.area ||
-                'ไม่ระบุประเทศ'
+                'ไม่ระบุ Area'
               )}
-
-            </div>
+            </span>
 
           </div>
 
 
           <button
-            onclick="addToQueue(${meal.id})"
+            class="detail-button"
+            onclick="showMealDetail(${meal.id})"
           >
-
-            เพิ่มเข้าคิว
-
+            ดูรายละเอียด
           </button>
 
         </div>
 
-      `).join('');
-
-
-    errorBox.style.display =
-      'none';
-
-
-  } catch (err) {
-
-    showError(
-      err.message
-    );
+      </div>
+    `;
 
   }
 
+
+  container.innerHTML = html;
+
+  updateSortInfo();
 }
 
 
 // ================================================================
-// เพิ่มเมนูเข้าคิว
+// SORT INFORMATION
 // ================================================================
 
-async function addToQueue(id) {
+function updateSortInfo() {
 
-  try {
-
-    const res =
-      await fetch(
-        '/watchlist',
-        {
-
-          method: 'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json'
-          },
-
-          body:
-            JSON.stringify({
-              id: id
-            })
-
-        }
-      );
-
-
-    const result =
-      await res.json();
-
-
-    if (!res.ok) {
-
-      throw new Error(
-        result.error ||
-        'เพิ่มเข้าคิวไม่สำเร็จ'
-      );
-
-    }
-
-
-    await refreshQueueAndHistory();
-
-
-  } catch (err) {
-
-    showError(
-      err.message
-    );
-
-  }
-
-}
-
-
-// ================================================================
-// เลือกเมนูจาก Queue
-// ================================================================
-
-async function processQueue() {
-
-  try {
-
-    const res =
-      await fetch(
-        '/watchlist/process',
-        {
-          method: 'DELETE'
-        }
-      );
-
-
-    const result =
-      await res.json();
-
-
-    if (!res.ok) {
-
-      throw new Error(
-        result.error ||
-        'ประมวลผลคิวไม่สำเร็จ'
-      );
-
-    }
-
-
-    await refreshQueueAndHistory();
-
-
-  } catch (err) {
-
-    showError(
-      err.message
-    );
-
-  }
-
-}
-
-
-// ================================================================
-// Undo
-// ================================================================
-
-async function undo() {
-
-  try {
-
-    const res =
-      await fetch(
-        '/undo',
-        {
-          method: 'POST'
-        }
-      );
-
-
-    const result =
-      await res.json();
-
-
-    if (!res.ok) {
-
-      throw new Error(
-        result.error ||
-        'Undo ไม่สำเร็จ'
-      );
-
-    }
-
-
-    await refreshQueueAndHistory();
-
-
-  } catch (err) {
-
-    showError(
-      err.message
-    );
-
-  }
-
-}
-
-
-// ================================================================
-// โหลด Queue และ History
-// ================================================================
-
-async function refreshQueueAndHistory() {
-
-  try {
-
-    const [
-      queueRes,
-      historyRes
-    ] = await Promise.all([
-
-      fetch('/watchlist'),
-
-      fetch('/history')
-
-    ]);
-
-
-    const queue =
-      await queueRes.json();
-
-
-    const history =
-      await historyRes.json();
-
-
-    // จำนวน Queue
-
+  const sortInfo =
     document.getElementById(
-      'queueSize'
-    ).textContent =
-      queue.size;
-
-
-    const watchlist =
-      document.getElementById(
-        'watchlist'
-      );
-
-
-    // ถ้า Queue ว่าง
-
-    if (
-      queue.items.length === 0
-    ) {
-
-      watchlist.innerHTML =
-        '<li class="empty">ยังไม่มีเมนูในคิว</li>';
-
-    }
-
-
-    // แสดง Queue
-
-    else {
-
-      watchlist.innerHTML =
-        queue.items.map(
-          (meal, index) => `
-
-          <li>
-
-            ${index + 1}.
-            ${escapeHtml(
-              meal.name
-            )}
-
-            <span>
-
-              ${escapeHtml(
-                meal.category || ''
-              )}
-
-            </span>
-
-          </li>
-
-        `
-        ).join('');
-
-    }
-
-
-    // ============================================================
-    // History
-    // ============================================================
-
-    const historyBox =
-      document.getElementById(
-        'history'
-      );
-
-
-    if (
-      history.history.length === 0
-    ) {
-
-      historyBox.innerHTML =
-        '<li class="empty">ยังไม่มีประวัติ</li>';
-
-    }
-
-
-    else {
-
-      historyBox.innerHTML =
-        history.history.map(
-          item => `
-
-          <li>
-
-            ${item.action}:
-            ${escapeHtml(
-              item.meal.name
-            )}
-
-            <span>
-
-              ${escapeHtml(
-                item.time
-              )}
-
-            </span>
-
-          </li>
-
-        `
-        ).join('');
-
-    }
-
-
-  } catch (err) {
-
-    showError(
-      err.message
+      'sortInfo'
     );
 
-  }
 
+  const orderText =
+    sortOrder === 'az'
+      ? 'A–Z'
+      : 'Z–A';
+
+
+  sortInfo.textContent =
+    `${currentMeals.length} เมนู · เรียง ${orderText}`;
 }
 
 
 // ================================================================
-// แสดง Error
+// MEAL DETAIL
+// ================================================================
+
+function showMealDetail(id) {
+
+  let meal = null;
+
+
+  for (
+    let i = 0;
+    i < allMeals.length;
+    i++
+  ) {
+
+    if (allMeals[i].id === id) {
+
+      meal = allMeals[i];
+
+      break;
+
+    }
+
+  }
+
+
+  if (!meal) {
+
+    showError(
+      'ไม่พบข้อมูลเมนูนี้'
+    );
+
+    return;
+  }
+
+
+  alert(
+    `${meal.name}\n\n` +
+    `Category: ${meal.category}\n` +
+    `Area: ${meal.area}`
+  );
+}
+
+
+// ================================================================
+// ERROR
 // ================================================================
 
 function showError(message) {
@@ -437,12 +649,11 @@ function showError(message) {
 
   errorBox.style.display =
     'block';
-
 }
 
 
 // ================================================================
-// ป้องกัน HTML Injection
+// ESCAPE HTML
 // ================================================================
 
 function escapeHtml(value) {
@@ -450,39 +661,67 @@ function escapeHtml(value) {
   return String(
     value ?? ''
   )
-
     .replaceAll(
       '&',
       '&amp;'
     )
-
     .replaceAll(
       '<',
       '&lt;'
     )
-
     .replaceAll(
       '>',
       '&gt;'
     )
-
     .replaceAll(
       '"',
       '&quot;'
     )
-
     .replaceAll(
       "'",
       '&#039;'
     );
-
 }
 
 
 // ================================================================
-// เริ่มต้นระบบ
+// RESET
 // ================================================================
 
-loadDashboard();
+function resetFilter() {
 
-refreshQueueAndHistory();
+  document.getElementById(
+    'searchInput'
+  ).value = '';
+
+
+  document.getElementById(
+    'categoryFilter'
+  ).value = '';
+
+
+  document.getElementById(
+    'areaFilter'
+  ).value = '';
+
+
+  currentMeals =
+    [...allMeals];
+
+
+  renderMeals();
+}
+
+
+// ================================================================
+// EVENT
+// ================================================================
+
+document.addEventListener(
+  'DOMContentLoaded',
+  function () {
+
+    loadDashboard();
+
+  }
+);

@@ -10,7 +10,7 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Week 8 — Meal Dashboard</title>
+  <title>Food Finder - TheMealDB</title>
 
 
   <style>
@@ -22,27 +22,40 @@
 
     body {
 
+      margin: 0;
+
       font-family:
         Arial,
         "TH Sarabun New",
         sans-serif;
 
-      margin: 0;
+      background: #f7f3ee;
 
-      background: #F3F4F6;
-
-      color: #111827;
+      color: #332b27;
 
     }
 
 
+    /* =========================================================
+       HEADER
+       ========================================================= */
+
     header {
 
-      background: #1E40AF;
+      background: #6f4e37;
 
-      color: #fff;
+      color: white;
 
-      padding: 16px 24px;
+      padding: 25px 20px;
+
+    }
+
+
+    .header-inner {
+
+      max-width: 1200px;
+
+      margin: auto;
 
     }
 
@@ -51,269 +64,575 @@
 
       margin: 0;
 
-      font-size: 20px;
+      font-size: 28px;
 
     }
 
 
     header p {
 
-      margin: 4px 0 0;
+      margin: 6px 0 0;
 
-      font-size: 13px;
-
-      color: #BFD9FF;
+      opacity: 0.9;
 
     }
 
 
-    .layout {
+    /* =========================================================
+       MAIN
+       ========================================================= */
 
-      display: grid;
+    .container {
 
-      grid-template-columns: 2fr 1fr;
+      max-width: 1200px;
 
-      gap: 16px;
+      margin: auto;
 
-      padding: 16px 24px;
-
-    }
-
-
-    .panel {
-
-      background: #fff;
-
-      border-radius: 8px;
-
-      padding: 14px;
+      padding: 20px;
 
     }
 
 
-    .panel h2 {
+    /* =========================================================
+       SEARCH AREA
+       ========================================================= */
 
-      margin: 0 0 10px;
+    .search-panel {
 
-      font-size: 15px;
+      background: white;
 
-      color: #1E40AF;
+      border-radius: 14px;
 
-      border-bottom:
-        2px solid #E0F2FE;
+      padding: 18px;
 
-      padding-bottom: 6px;
+      margin-bottom: 20px;
 
-    }
-
-
-    #error {
-
-      display: none;
-
-      background: #FEE2E2;
-
-      color: #DC2626;
-
-      padding: 10px;
-
-      margin: 0 24px;
-
-      border-radius: 6px;
-
-      font-size: 13px;
+      box-shadow:
+        0 3px 12px rgba(0, 0, 0, 0.06);
 
     }
 
 
-    .toolbar {
+    .search-row {
 
       display: flex;
 
-      gap: 8px;
+      gap: 10px;
 
-      align-items: center;
-
-      margin-bottom: 10px;
+      margin-bottom: 12px;
 
     }
 
 
-    select,
-    button {
+    #searchInput {
 
-      font: inherit;
+      flex: 1;
 
-      padding: 6px 12px;
+      padding: 12px 15px;
 
-      border-radius: 6px;
+      border: 1px solid #d6ccc5;
 
-      border:
-        1px solid #CBD5E1;
+      border-radius: 8px;
 
-      background: #fff;
+      font-size: 15px;
+
+      outline: none;
+
+    }
+
+
+    #searchInput:focus {
+
+      border-color: #8b684c;
+
+    }
+
+
+    .search-button {
+
+      border: none;
+
+      background: #6f4e37;
+
+      color: white;
+
+      border-radius: 8px;
+
+      padding: 0 22px;
+
+      cursor: pointer;
+
+      font-weight: bold;
+
+    }
+
+
+    .filter-row {
+
+      display: grid;
+
+      grid-template-columns:
+        1fr 1fr auto;
+
+      gap: 10px;
+
+    }
+
+
+    select {
+
+      padding: 10px;
+
+      border: 1px solid #d6ccc5;
+
+      border-radius: 8px;
+
+      background: white;
 
       cursor: pointer;
 
     }
 
 
-    button.primary {
+    .reset-button {
 
-      background: #0F766E;
+      border: 1px solid #6f4e37;
 
-      color: #fff;
+      background: white;
 
-      border-color: #0F766E;
+      color: #6f4e37;
+
+      border-radius: 8px;
+
+      padding: 0 18px;
+
+      cursor: pointer;
 
     }
 
 
-    button.warn {
+    /* =========================================================
+       TOOLBAR
+       ========================================================= */
 
-      background: #DC2626;
+    .toolbar {
 
-      color: #fff;
+      display: flex;
 
-      border-color: #DC2626;
+      justify-content: space-between;
+
+      align-items: center;
+
+      gap: 10px;
+
+      margin-bottom: 15px;
+
+    }
+
+
+    .sort-buttons {
+
+      display: flex;
+
+      gap: 8px;
+
+    }
+
+
+    .sort-button {
+
+      border: 1px solid #cbbcaf;
+
+      background: white;
+
+      color: #5a4434;
+
+      border-radius: 7px;
+
+      padding: 8px 15px;
+
+      cursor: pointer;
+
+    }
+
+
+    .sort-button:hover {
+
+      background: #eee5dc;
 
     }
 
 
     #sortInfo {
 
-      font-size: 12px;
+      color: #76685e;
 
-      color: #6B7280;
-
-      margin-left: auto;
+      font-size: 14px;
 
     }
 
 
-    .card {
+    /* =========================================================
+       MEAL GRID
+       ========================================================= */
 
-      display: flex;
+    #meals {
 
-      align-items: center;
+      display: grid;
 
-      gap: 10px;
+      grid-template-columns:
+        repeat(4, 1fr);
 
-      padding: 8px;
-
-      border-bottom:
-        1px solid #F3F4F6;
+      gap: 18px;
 
     }
 
 
-    .card img {
+    /* =========================================================
+       MEAL CARD
+       ========================================================= */
 
-      width: 60px;
+    .meal-card {
 
-      height: 60px;
+      background: white;
 
-      border-radius: 6px;
+      border-radius: 14px;
+
+      overflow: hidden;
+
+      box-shadow:
+        0 3px 12px rgba(0, 0, 0, 0.08);
+
+      transition:
+        transform 0.2s,
+        box-shadow 0.2s;
+
+    }
+
+
+    .meal-card:hover {
+
+      transform: translateY(-3px);
+
+      box-shadow:
+        0 6px 18px rgba(0, 0, 0, 0.12);
+
+    }
+
+
+    .meal-image-wrapper {
+
+      width: 100%;
+
+      aspect-ratio: 1 / 1;
+
+      overflow: hidden;
+
+    }
+
+
+    .meal-image {
+
+      width: 100%;
+
+      height: 100%;
 
       object-fit: cover;
 
+      display: block;
+
     }
 
 
-    .card .info {
+    .meal-content {
+
+      padding: 14px;
+
+    }
+
+
+    .meal-name {
+
+      margin: 0 0 10px;
+
+      font-size: 17px;
+
+      line-height: 1.4;
+
+      min-height: 48px;
+
+    }
+
+
+    .meal-meta {
 
       display: flex;
 
-      flex-direction: column;
+      flex-wrap: wrap;
 
-      flex: 1;
+      gap: 6px;
+
+      margin-bottom: 13px;
 
     }
 
 
-    .card .meta {
+    .tag {
+
+      background: #f1e5da;
+
+      color: #684a35;
+
+      border-radius: 20px;
+
+      padding: 5px 9px;
 
       font-size: 12px;
 
-      color: #6B7280;
+    }
 
-      margin-top: 3px;
+
+    .tag.area {
+
+      background: #eee8df;
 
     }
 
 
-    .card button {
+    .detail-button {
 
-      margin-left: auto;
+      width: 100%;
 
-      white-space: nowrap;
+      border: none;
 
-    }
+      background: #6f4e37;
 
+      color: white;
 
-    ul {
+      border-radius: 7px;
 
-      list-style: none;
+      padding: 9px;
 
-      padding: 0;
-
-      margin: 0;
-
-      font-size: 13px;
+      cursor: pointer;
 
     }
 
 
-    li {
+    .detail-button:hover {
 
-      padding: 6px 4px;
-
-      border-bottom:
-        1px solid #F3F4F6;
+      background: #573b29;
 
     }
 
 
-    li span {
+    /* =========================================================
+       LOADING
+       ========================================================= */
 
-      float: right;
+    .loading {
 
-      color: #6B7280;
+      grid-column: 1 / -1;
 
-      font-size: 11px;
+      text-align: center;
 
-    }
-
-
-    li.empty {
-
-      color: #9CA3AF;
-
-      font-style: italic;
+      padding: 60px 20px;
 
     }
 
 
-    .badge {
+    .spinner {
 
-      background: #DBEAFE;
+      width: 40px;
 
-      color: #1E40AF;
+      height: 40px;
 
-      border-radius: 10px;
+      margin: auto;
 
-      padding: 1px 8px;
+      border:
+        4px solid #e4d9d0;
 
-      font-size: 12px;
+      border-top-color: #6f4e37;
+
+      border-radius: 50%;
+
+      animation:
+        spin 0.8s linear infinite;
+
+    }
+
+
+    @keyframes spin {
+
+      to {
+
+        transform: rotate(360deg);
+
+      }
+
+    }
+
+
+    /* =========================================================
+       EMPTY STATE
+       ========================================================= */
+
+    .empty-state {
+
+      grid-column: 1 / -1;
+
+      text-align: center;
+
+      padding: 60px 20px;
+
+      background: white;
+
+      border-radius: 14px;
+
+    }
+
+
+    .empty-icon {
+
+      font-size: 45px;
+
+      margin-bottom: 10px;
+
+    }
+
+
+    .empty-state h3 {
+
+      margin: 5px 0;
+
+    }
+
+
+    .empty-state p {
+
+      color: #8a7d74;
+
+    }
+
+
+    .empty-state button {
+
+      border: none;
+
+      background: #6f4e37;
+
+      color: white;
+
+      padding: 9px 18px;
+
+      border-radius: 7px;
+
+      cursor: pointer;
+
+    }
+
+
+    /* =========================================================
+       ERROR
+       ========================================================= */
+
+    #error {
+
+      display: none;
+
+      max-width: 1200px;
+
+      margin: 15px auto;
+
+      padding: 12px;
+
+      background: #fce4e4;
+
+      color: #a22;
+
+      border-radius: 8px;
+
+    }
+
+
+    /* =========================================================
+       RESPONSIVE
+       ========================================================= */
+
+    @media (max-width: 1000px) {
+
+      #meals {
+
+        grid-template-columns:
+          repeat(3, 1fr);
+
+      }
 
     }
 
 
     @media (max-width: 700px) {
 
-      .layout {
+      .search-row {
+
+        flex-direction: column;
+
+      }
+
+
+      .search-button {
+
+        padding: 11px;
+
+      }
+
+
+      .filter-row {
 
         grid-template-columns: 1fr;
+
+      }
+
+
+      .reset-button {
+
+        padding: 10px;
+
+      }
+
+
+      #meals {
+
+        grid-template-columns:
+          repeat(2, 1fr);
+
+        gap: 12px;
+
+      }
+
+
+      .toolbar {
+
+        flex-direction: column;
+
+        align-items: flex-start;
+
+      }
+
+    }
+
+
+    @media (max-width: 450px) {
+
+      #meals {
+
+        grid-template-columns: 1fr;
+
+      }
+
+
+      header h1 {
+
+        font-size: 23px;
 
       }
 
@@ -327,15 +646,21 @@
 <body>
 
 
+  <!-- =========================================================
+       HEADER
+       ========================================================= -->
+
   <header>
 
-    <h1>Meal Dashboard</h1>
+    <div class="header-inner">
 
-    <p>
-      801201 Week 8 ·
-      Sort (W5) + Queue (W6) + Stack (W8) ·
-      ข้อมูลจาก TheMealDB API
-    </p>
+      <h1>🍽️ Food Finder</h1>
+
+      <p>
+        ระบบค้นหาเมนูอาหารจาก TheMealDB API
+      </p>
+
+    </div>
 
   </header>
 
@@ -343,127 +668,131 @@
   <div id="error"></div>
 
 
-  <div class="layout">
+  <main class="container">
 
 
-    <!-- เมนูอาหาร -->
+    <!-- =======================================================
+         SEARCH
+         ======================================================= -->
 
-    <div class="panel">
+    <section class="search-panel">
 
-      <h2>
-        เมนูอาหาร — เรียงตามชื่อเมนู
-      </h2>
+      <div class="search-row">
 
-
-      <div class="toolbar">
-
-        <select
-          id="algo"
-          onchange="loadDashboard()"
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="ค้นหาชื่อเมนูอาหาร..."
+          onkeydown="
+            if(event.key === 'Enter') {
+              searchMeals();
+            }
+          "
         >
 
-          <option value="selection">
-            Selection Sort
-          </option>
 
-          <option value="insertion">
-            Insertion Sort
-          </option>
+        <button
+          class="search-button"
+          onclick="searchMeals()"
+        >
+          🔍 ค้นหา
+        </button>
 
-          <option value="bubble">
-            Bubble Sort
+      </div>
+
+
+      <!-- FILTER -->
+
+      <div class="filter-row">
+
+        <select
+          id="categoryFilter"
+          onchange="applyCurrentFilters()"
+        >
+
+          <option value="">
+            ทุก Category
           </option>
 
         </select>
 
 
-        <span id="sortInfo"></span>
+        <select
+          id="areaFilter"
+          onchange="applyCurrentFilters()"
+        >
+
+          <option value="">
+            ทุก Area
+          </option>
+
+        </select>
+
+
+        <button
+          class="reset-button"
+          onclick="resetFilter()"
+        >
+          ล้าง Filter
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =======================================================
+         TOOLBAR
+         ======================================================= -->
+
+    <div class="toolbar">
+
+      <div class="sort-buttons">
+
+        <button
+          class="sort-button"
+          onclick="sortAZ()"
+        >
+          A–Z
+        </button>
+
+
+        <button
+          class="sort-button"
+          onclick="sortZA()"
+        >
+          Z–A
+        </button>
 
       </div>
 
 
-      <div id="meals"></div>
+      <span id="sortInfo">
+        กำลังโหลด...
+      </span>
 
     </div>
 
 
-    <!-- Queue และ Stack -->
+    <!-- =======================================================
+         MEALS
+         ======================================================= -->
 
-    <div>
+    <section id="meals">
 
+      <div class="loading">
 
-      <!-- Queue -->
+        <div class="spinner"></div>
 
-      <div
-        class="panel"
-        style="margin-bottom:16px"
-      >
-
-        <h2>
-
-          คิวเมนูที่เลือก
-
-          <span
-            class="badge"
-            id="queueSize"
-          >
-            0
-          </span>
-
-        </h2>
-
-
-        <div class="toolbar">
-
-          <button
-            class="primary"
-            onclick="processQueue()"
-          >
-
-            เลือกเมนูถัดไป
-            (dequeue)
-
-          </button>
-
-        </div>
-
-
-        <ul id="watchlist"></ul>
+        <p>
+          กำลังโหลดเมนูอาหาร...
+        </p>
 
       </div>
 
+    </section>
 
-      <!-- Stack -->
-
-      <div class="panel">
-
-        <h2>
-          ประวัติ (Stack)
-        </h2>
-
-
-        <div class="toolbar">
-
-          <button
-            class="warn"
-            onclick="undo()"
-          >
-
-            ↩ Undo (pop)
-
-          </button>
-
-        </div>
-
-
-        <ul id="history"></ul>
-
-      </div>
-
-
-    </div>
-
-  </div>
+  </main>
 
 
   <script src="dashboard.js"></script>
