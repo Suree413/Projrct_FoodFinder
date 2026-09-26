@@ -940,6 +940,52 @@ app.post(
   }
 );
 
+// =====================================================================
+// GET /meal/:id
+// ดึงรายละเอียดเมนูอาหารรายรายการจาก TheMealDB (lookup.php?i=MealID)
+// =====================================================================
+app.get('/meal/:id', async (req, res) => {
+  try {
+    const mealId = req.params.id;
+    const LOOKUP_API = `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${mealId}`;
+    
+    const data = await fetchJSON(LOOKUP_API);
+
+    if (!data || !data.meals || data.meals.length === 0) {
+      return res.status(404).json({ error: 'ไม่พบรายละเอียดเมนูอาหารนี้' });
+    }
+
+    const detail = data.meals[0];
+
+    // แกะส่วนผสม Ingredients และ Measures
+    const ingredients = [];
+    for (let i = 1; i <= 20; i++) {
+      const ingredient = detail[`strIngredient${i}`];
+      const measure = detail[`strMeasure${i}`];
+
+      if (ingredient && ingredient.trim() !== '') {
+        ingredients.push({
+          ingredient: ingredient.trim(),
+          measure: measure ? measure.trim() : ''
+        });
+      }
+    }
+
+    res.json({
+      id: detail.idMeal,
+      name: detail.strMeal,
+      category: detail.strCategory,
+      area: detail.strArea,
+      instructions: detail.strInstructions,
+      image: detail.strMealThumb,
+      ingredients: ingredients
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // =====================================================================
 // START SERVER
