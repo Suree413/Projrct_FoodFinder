@@ -69,6 +69,8 @@
     .instructions-text { color: var(--ink); font-size: 14px; line-height: 1.6; white-space: pre-line; }
     .sidebar .panel + .panel { margin-top: 16px; }
     .sidebar .toolbar { justify-content: flex-start; margin-bottom: 8px; }
+    .history-item { min-height: 0; padding: 0; border: 0; background: transparent; color: var(--forest); text-align: left; }
+    .history-item:hover { border: 0; background: transparent; color: #754b50; text-decoration: underline; transform: none; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; background: rgba(164, 122, 139, 0.2); color: var(--forest); font-size: 12px; }
     ul { margin: 0; padding: 0; list-style: none; font-size: 13px; }
     li { padding: 7px 4px; border-bottom: 1px solid rgba(78, 98, 83, 0.14); }
@@ -116,14 +118,9 @@
         <section class="panel">
           <div class="toolbar">
             <div class="sort-buttons">
-              <button onclick="sortAZ()">A–Z</button>
-              <button onclick="sortZA()">Z–A</button>
+              <button onclick="sortAZ()">A-Z</button>
+              <button onclick="sortZA()">Z-A</button>
             </div>
-            <select id="algo" onchange="sortAndRender(currentMeals)" aria-label="อัลกอริทึมเรียงลำดับ">
-              <option value="selection">Selection Sort</option>
-              <option value="insertion">Insertion Sort</option>
-              <option value="bubble">Bubble Sort</option>
-            </select>
             <span id="sortInfo">กำลังโหลด...</span>
           </div>
           <p id="resultInfo" aria-live="polite"></p>
@@ -135,7 +132,7 @@
 
       <section id="detailView" class="panel">
         <div class="toolbar">
-          <button class="action-button" onclick="goBack()">กลับ</button>
+          <button class="action-button" onclick="goBack()">← กลับ</button>
         </div>
         <div id="recipeDetailContent" class="detail-container"></div>
       </section>
@@ -143,12 +140,12 @@
 
     <aside class="sidebar">
       <section class="panel">
-        <h2>คิวเมนูที่เลือก <span class="badge" id="queueSize">0</span></h2>
-        <div class="toolbar"><button class="action-button" onclick="processQueue()">เลือกเมนูถัดไป</button></div>
+        <h2>❤️ เมนูที่บันทึกไว้ <span class="badge" id="queueSize">0</span></h2>
+        <div class="toolbar"><button class="action-button" onclick="processQueue()">ดูเมนูถัดไป</button></div>
         <ul id="watchlist"><li class="empty">กำลังโหลดคิว...</li></ul>
       </section>
       <section class="panel">
-        <h2>ประวัติ (Stack)</h2>
+        <h2>📚 ประวัติการดู</h2>
         <div class="toolbar"><button class="action-button" onclick="undo()">Undo</button></div>
         <ul id="history"><li class="empty">กำลังโหลดประวัติ...</li></ul>
       </section>

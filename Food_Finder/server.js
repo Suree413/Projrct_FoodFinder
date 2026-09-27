@@ -36,6 +36,7 @@ const AREA_API =
 // =====================================================================
 
 let meals = [];
+const mealDetails = new Map();
 
 
 // =====================================================================
@@ -109,13 +110,26 @@ async function fetchJSON(url) {
 // =====================================================================
 
 function normalizeMeal(meal) {
+  const ingredients = [];
+  for (let index = 1; index <= 20; index++) {
+    const ingredient = meal[`strIngredient${index}`];
+    const measure = meal[`strMeasure${index}`];
+    if (ingredient && ingredient.trim()) {
+      ingredients.push({
+        ingredient: ingredient.trim(),
+        measure: measure ? measure.trim() : ''
+      });
+    }
+  }
+
   return {
     id: Number(meal.idMeal ?? meal.id),
     name: meal.strMeal ?? meal.name ?? '',
     category: meal.strCategory ?? meal.category ?? '',
     area: meal.strArea ?? meal.area ?? '',
     instructions: meal.strInstructions ?? meal.instructions ?? '',
-    image: meal.strMealThumb ?? meal.image ?? ''
+    image: meal.strMealThumb ?? meal.image ?? '',
+    ingredients
   };
 }
 
@@ -134,15 +148,18 @@ async function fetchFilterMeals(kind, value) {
 
 
 async function getMealById(id) {
-  const cachedMeal = meals.find(meal => meal.id === Number(id));
+  const mealId = Number(id);
+  const cachedMeal = mealDetails.get(mealId);
   if (cachedMeal) return cachedMeal;
 
   const data = await fetchJSON(
-    `${THEMEALDB_BASE}/lookup.php?i=${encodeURIComponent(id)}`
+    `${THEMEALDB_BASE}/lookup.php?i=${encodeURIComponent(mealId)}`
   );
-  return data.meals && data.meals[0]
-    ? normalizeMeal(data.meals[0])
-    : null;
+  if (!data.meals || !data.meals[0]) return null;
+
+  const meal = normalizeMeal(data.meals[0]);
+  mealDetails.set(mealId, meal);
+  return meal;
 }
 
 
@@ -791,25 +808,6 @@ app.post(
       watchlist.enqueue(meal);
 
 
-      // -------------------------------------------------------------
-      // บันทึกประวัติลง Stack
-      // -------------------------------------------------------------
-
-      history.push({
-
-        action:
-          'ADD',
-
-        meal:
-          meal,
-
-        time:
-          new Date()
-            .toLocaleTimeString('th-TH')
-
-      });
-
-
       res.status(201).json({
 
         message:
@@ -872,29 +870,13 @@ app.delete(
         watchlist.dequeue();
 
 
-      // -------------------------------------------------------------
-      // บันทึกลง Stack
-      // -------------------------------------------------------------
-
-      history.push({
-
-        action:
-          'COOK',
-
-        meal:
-          meal,
-
-        time:
-          new Date()
-            .toLocaleTimeString('th-TH')
-
-      });
-
-
       res.json({
 
         message:
           `เลือก ${meal.name} เรียบร้อย`,
+
+        meal:
+          meal,
 
         size:
           watchlist.size()
@@ -1031,6 +1013,32 @@ app.get(
 // =====================================================================
 
 app.post(
+  '/history',
+  async (req, res) => {
+    try {
+      const id = Number(req.body.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ error: 'รหัสเมนูไม่ถูกต้อง' });
+      }
+
+      const meal = await getMealById(id);
+      if (!meal) {
+        return res.status(404).json({ error: 'ไม่พบเมนูอาหารนี้' });
+      }
+
+      history.push({
+        action: 'VIEW',
+        meal,
+        time: new Date().toLocaleTimeString('th-TH')
+      });
+      res.status(201).json({ message: `บันทึกประวัติการดู ${meal.name} แล้ว` });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+app.post(
   '/undo',
   (req, res) => {
 
@@ -1060,49 +1068,16 @@ app.post(
         history.pop();
 
 
-      // -------------------------------------------------------------
-      // ถ้า Action เป็น ADD
-      // เอารายการล่าสุดออกจาก Queue
-      // -------------------------------------------------------------
-
-      if (
-        last.action === 'ADD'
-      ) {
-
-        const index = watchlist.items
-          .map(item => item.id)
-          .lastIndexOf(last.meal.id);
-
-        if (index !== -1) {
-          watchlist.items.splice(index, 1);
-        }
-
-      }
-
-
-      // -------------------------------------------------------------
-      // ถ้า Action เป็น COOK
-      // นำเมนูกลับไปหน้าคิว
-      // -------------------------------------------------------------
-
-      else if (
-        last.action === 'COOK'
-      ) {
-
-        watchlist.items.unshift(
-          last.meal
-        );
-
-      }
-
-
       res.json({
 
         message:
-          `ย้อน ${last.action} ของ ${last.meal.name} แล้ว`,
+          `ย้อนกลับจาก ${last.meal.name} แล้ว`,
+
+        previousMeal:
+          history.peek()?.meal || null,
 
         size:
-          watchlist.size()
+          history.items.length
 
       });
 
@@ -1128,40 +1103,12 @@ app.post(
 // =====================================================================
 app.get('/meal/:id', async (req, res) => {
   try {
-    const mealId = req.params.id;
-    const LOOKUP_API = `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${mealId}`;
-    
-    const data = await fetchJSON(LOOKUP_API);
-
-    if (!data || !data.meals || data.meals.length === 0) {
+    const meal = await getMealById(req.params.id);
+    if (!meal) {
       return res.status(404).json({ error: 'ไม่พบรายละเอียดเมนูอาหารนี้' });
     }
 
-    const detail = data.meals[0];
-
-    // แกะส่วนผสม Ingredients และ Measures
-    const ingredients = [];
-    for (let i = 1; i <= 20; i++) {
-      const ingredient = detail[`strIngredient${i}`];
-      const measure = detail[`strMeasure${i}`];
-
-      if (ingredient && ingredient.trim() !== '') {
-        ingredients.push({
-          ingredient: ingredient.trim(),
-          measure: measure ? measure.trim() : ''
-        });
-      }
-    }
-
-    res.json({
-      id: detail.idMeal,
-      name: detail.strMeal,
-      category: detail.strCategory,
-      area: detail.strArea,
-      instructions: detail.strInstructions,
-      image: detail.strMealThumb,
-      ingredients: ingredients
-    });
+    res.json(meal);
 
   } catch (error) {
     res.status(500).json({ error: error.message });

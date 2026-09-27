@@ -3,30 +3,6 @@ let currentMeals = [];
 let searchBaseMeals = [];
 let sortOrder = 'az';
 
-class NavigationStack {
-  constructor() {
-    this.items = [];
-  }
-
-  push(id) {
-    this.items.push(id);
-  }
-
-  pop() {
-    return this.items.pop() ?? null;
-  }
-
-  peek() {
-    return this.items[this.items.length - 1] ?? null;
-  }
-
-  isEmpty() {
-    return this.items.length === 0;
-  }
-}
-
-const navStack = new NavigationStack();
-
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -269,7 +245,7 @@ function sortAndRender(meals = currentMeals) {
   else currentMeals = selectionSort(meals, descending);
   const elapsed = (performance.now() - start).toFixed(3);
   document.getElementById('sortInfo').textContent =
-    `${currentMeals.length} เมนู · ${sortOrder.toUpperCase()} · ${algorithm} · ${elapsed} ms`;
+    `DSA Sort · Selection Sort · ${currentMeals.length} เมนู · ${sortOrder.toUpperCase()} · ${elapsed} ms`;
   renderMeals();
 }
 
@@ -313,16 +289,28 @@ function renderMeals() {
 }
 
 function updateSortInfo() {
-  const orderLabel = sortOrder === 'az' ? 'A–Z' : 'Z–A';
-  const algorithm = document.getElementById('algo')?.value || 'selection';
+  const orderLabel = sortOrder === 'az' ? 'A-Z' : 'Z-A';
   document.getElementById('sortInfo').textContent =
-    `${currentMeals.length} เมนู · เรียง ${orderLabel} · ${algorithm}`;
+    `DSA Sort · Selection Sort · ${currentMeals.length} เมนู · เรียง ${orderLabel}`;
 }
 
 async function openDetail(mealId) {
   const id = Number(mealId);
-  if (navStack.peek() !== id) navStack.push(id);
-  await fetchAndRenderDetail(id);
+  const meal = await fetchAndRenderDetail(id);
+  if (!meal) return;
+
+  try {
+    const response = await fetch('/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'บันทึกประวัติการดูไม่สำเร็จ');
+    await updateHistory();
+  } catch (error) {
+    showError(error.message);
+  }
 }
 
 async function showMealDetail(mealId) {
@@ -339,6 +327,7 @@ async function fetchAndRenderDetail(mealId) {
     document.getElementById('recipeDetailContent').innerHTML = `
       <img class="detail-img" src="${escapeHtml(meal.image)}" alt="${escapeHtml(meal.name)}">
       <h2 class="detail-title">${escapeHtml(meal.name)}</h2>
+      <span>Meal ID: ${escapeHtml(meal.id || mealId)}</span>
       <div class="detail-badge-group">
         <span class="detail-badge">Category: ${escapeHtml(meal.category || 'ไม่ระบุ')}</span>
         <span class="detail-badge">Area: ${escapeHtml(meal.area || 'ไม่ระบุ')}</span>
@@ -351,22 +340,22 @@ async function fetchAndRenderDetail(mealId) {
       </section>
       <h3>Instructions (วิธีทำ)</h3>
       <div class="instructions-text">${escapeHtml(meal.instructions || '')}</div>
+      <div class="toolbar">
+        <button class="primary" onclick="addToQueue(${Number(meal.id || mealId)})">❤️ เพิ่มเข้ารายการที่บันทึกไว้</button>
+        <button onclick="goBack()">← กลับ</button>
+      </div>
     `;
     document.getElementById('dashboardView').style.display = 'none';
     document.getElementById('detailView').style.display = 'block';
+    return meal;
   } catch (error) {
     showError(error.message);
+    return null;
   }
 }
 
-function goBack() {
-  navStack.pop();
-  if (!navStack.isEmpty()) {
-    fetchAndRenderDetail(navStack.peek());
-    return;
-  }
-  document.getElementById('detailView').style.display = 'none';
-  document.getElementById('dashboardView').style.display = 'block';
+async function goBack() {
+  await undo();
 }
 
 async function addToQueue(id) {
@@ -391,7 +380,8 @@ async function processQueue() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'เลือกเมนูถัดไปไม่สำเร็จ');
     showError('');
-    await Promise.all([updateWatchlist(), updateHistory()]);
+    await updateWatchlist();
+    await openDetail(result.meal.id);
   } catch (error) {
     showError(error.message);
   }
@@ -403,7 +393,13 @@ async function undo() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'ย้อนรายการไม่สำเร็จ');
     showError('');
-    await Promise.all([updateWatchlist(), updateHistory()]);
+    await updateHistory();
+    if (result.previousMeal) {
+      await fetchAndRenderDetail(result.previousMeal.id);
+    } else {
+      document.getElementById('detailView').style.display = 'none';
+      document.getElementById('dashboardView').style.display = 'block';
+    }
   } catch (error) {
     showError(error.message);
   }
@@ -426,8 +422,8 @@ async function updateHistory() {
   if (!response.ok) throw new Error(data.error || 'โหลดประวัติไม่สำเร็จ');
   const list = document.getElementById('history');
   list.innerHTML = data.history.length
-    ? data.history.map(item => `<li>[${escapeHtml(item.action)}] ${escapeHtml(item.meal.name)} <span>${escapeHtml(item.time)}</span></li>`).join('')
-    : '<li class="empty">ยังไม่มีประวัติการทำรายการ</li>';
+    ? data.history.map(item => `<li><button class="history-item" onclick="openDetail(${Number(item.meal.id)})">${escapeHtml(item.meal.name)}</button><span>${escapeHtml(item.time)}</span></li>`).join('')
+    : '<li class="empty">ยังไม่มีประวัติการดู</li>';
 }
 
 async function loadQueue() {
@@ -447,7 +443,6 @@ function resetFilter() {
   showError('');
   document.getElementById('detailView').style.display = 'none';
   document.getElementById('dashboardView').style.display = 'block';
-  navStack.items = [];
   sortAndRender();
   document.getElementById('resultInfo').textContent = `พบ ${allMeals.length} เมนู`;
 }
