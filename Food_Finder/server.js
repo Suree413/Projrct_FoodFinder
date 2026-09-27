@@ -36,6 +36,8 @@ const AREA_API =
 // =====================================================================
 
 let meals = [];
+let mealsLoaded = false;
+let mealsLoadPromise = null;
 const mealDetails = new Map();
 
 
@@ -46,6 +48,7 @@ const mealDetails = new Map();
 async function fetchJSON(url) {
 
   const response = await fetch(url, {
+    signal: AbortSignal.timeout(8000),
 
     headers: {
 
@@ -242,6 +245,8 @@ async function loadMeals() {
 
       });
 
+    mealsLoaded = true;
+
 
     console.log(
       `โหลดข้อมูลสำเร็จ ${meals.length} เมนู`
@@ -267,9 +272,21 @@ async function loadMeals() {
     console.error('');
 
     meals = [];
+    throw error;
 
   }
 
+}
+
+
+async function ensureMealsLoaded() {
+  if (mealsLoaded) return meals;
+  if (!mealsLoadPromise) {
+    mealsLoadPromise = loadMeals().finally(() => {
+      mealsLoadPromise = null;
+    });
+  }
+  return mealsLoadPromise;
 }
 
 
@@ -340,159 +357,21 @@ function selectionSort(arr) {
 
 
 // =====================================================================
-// 2. INSERTION SORT
-// =====================================================================
-
-function insertionSort(arr) {
-
-  const a =
-    [...arr];
-
-
-  for (
-    let i = 1;
-    i < a.length;
-    i++
-  ) {
-
-    const key =
-      a[i];
-
-
-    let j =
-      i - 1;
-
-
-    while (
-
-      j >= 0 &&
-
-      a[j].name.toLowerCase() >
-      key.name.toLowerCase()
-
-    ) {
-
-      a[j + 1] =
-        a[j];
-
-      j--;
-
-    }
-
-
-    a[j + 1] =
-      key;
-
-  }
-
-
-  return a;
-
-}
-
-
-// =====================================================================
-// 3. BUBBLE SORT
-// =====================================================================
-
-function bubbleSort(arr) {
-
-  const a =
-    [...arr];
-
-
-  for (
-    let i = 0;
-    i < a.length - 1;
-    i++
-  ) {
-
-    for (
-      let j = 0;
-      j < a.length - 1 - i;
-      j++
-    ) {
-
-      if (
-
-        a[j].name.toLowerCase() >
-        a[j + 1].name.toLowerCase()
-
-      ) {
-
-        [
-          a[j],
-          a[j + 1]
-
-        ] = [
-
-          a[j + 1],
-          a[j]
-
-        ];
-
-      }
-
-    }
-
-  }
-
-
-  return a;
-
-}
-
-
-// =====================================================================
 // API /meals
 // =====================================================================
 
 app.get(
   '/meals',
-  (req, res) => {
+  async (req, res) => {
 
     try {
 
-      const algorithm =
-        req.query.sort || 'selection';
-
+      await ensureMealsLoaded();
 
       const start =
         performance.now();
 
-
-      let sortedMeals;
-
-
-      // ---------------------------------------------------------------
-      // เลือก Algorithm
-      // ---------------------------------------------------------------
-
-      if (
-        algorithm === 'insertion'
-      ) {
-
-        sortedMeals =
-          insertionSort(meals);
-
-      }
-
-      else if (
-        algorithm === 'bubble'
-      ) {
-
-        sortedMeals =
-          bubbleSort(meals);
-
-      }
-
-      else {
-
-        sortedMeals =
-          selectionSort(meals);
-
-      }
-
+      const sortedMeals = selectionSort(meals);
 
       const end =
         performance.now();
@@ -509,7 +388,7 @@ app.get(
       res.json({
 
         algorithm:
-          algorithm,
+          'selection',
 
         count:
           sortedMeals.length,
@@ -526,7 +405,7 @@ app.get(
 
     catch (error) {
 
-      res.status(500).json({
+      res.status(502).json({
 
         error:
           error.message
@@ -566,7 +445,7 @@ app.get('/api/search', async (req, res) => {
     });
   } catch (error) {
     console.error('Search Error:', error.message);
-    res.status(500).json({
+    res.status(502).json({
       success: false,
       message: 'เกิดข้อผิดพลาดในการค้นหาอาหาร'
     });
@@ -581,7 +460,7 @@ app.get('/api/categories', async (req, res) => {
     res.json({ success: true, count: categories.length, data: categories });
   } catch (error) {
     console.error('Category Error:', error.message);
-    res.status(500).json({ success: false, message: 'ไม่สามารถโหลด Category ได้' });
+    res.status(502).json({ success: false, message: 'ไม่สามารถโหลด Category จาก TheMealDB ได้' });
   }
 });
 
@@ -593,7 +472,7 @@ app.get('/api/areas', async (req, res) => {
     res.json({ success: true, count: areas.length, data: areas });
   } catch (error) {
     console.error('Area Error:', error.message);
-    res.status(500).json({ success: false, message: 'ไม่สามารถโหลด Area ได้' });
+    res.status(502).json({ success: false, message: 'ไม่สามารถโหลด Area จาก TheMealDB ได้' });
   }
 });
 
@@ -623,6 +502,7 @@ app.get('/api/meals', async (req, res) => {
     } else if (area) {
       result = await fetchFilterMeals('area', area);
     } else {
+      await ensureMealsLoaded();
       result = meals.map(meal => ({
         idMeal: meal.id,
         strMeal: meal.name,
@@ -649,7 +529,7 @@ app.get('/api/meals', async (req, res) => {
     });
   } catch (error) {
     console.error('Meals API Error:', error.message);
-    res.status(500).json({
+    res.status(502).json({
       success: false,
       message: 'เกิดข้อผิดพลาดในการโหลดข้อมูลอาหาร'
     });
@@ -668,9 +548,31 @@ app.get('/api/meals/:id', async (req, res) => {
     }
     res.json({ success: true, data: meal });
   } catch (error) {
-    res.status(500).json({
+    res.status(502).json({
       success: false,
       message: 'ไม่สามารถโหลดรายละเอียดเมนูได้'
+    });
+  }
+});
+
+
+app.get('/api/random', async (req, res) => {
+  try {
+    const data = await fetchJSON(`${THEMEALDB_BASE}/random.php`);
+    if (!data.meals || !data.meals[0]) {
+      return res.status(502).json({
+        success: false,
+        message: 'TheMealDB ไม่พบเมนูสำหรับสุ่ม'
+      });
+    }
+
+    const meal = normalizeMeal(data.meals[0]);
+    mealDetails.set(meal.id, meal);
+    res.json({ success: true, data: meal });
+  } catch (error) {
+    res.status(502).json({
+      success: false,
+      message: 'ไม่สามารถสุ่มเมนูจาก TheMealDB ได้'
     });
   }
 });
@@ -822,7 +724,7 @@ app.post(
 
     catch (error) {
 
-      res.status(500).json({
+      res.status(502).json({
 
         error:
           error.message
@@ -901,203 +803,6 @@ app.delete(
 
 
 // =====================================================================
-// STACK
-// เก็บประวัติการทำงาน
-// =====================================================================
-
-class Stack {
-
-  constructor() {
-
-    this.items =
-      [];
-
-  }
-
-
-  // ---------------------------------------------------------------
-  // เพิ่มข้อมูลด้านบน Stack
-  // ---------------------------------------------------------------
-
-  push(item) {
-
-    this.items.push(item);
-
-  }
-
-
-  // ---------------------------------------------------------------
-  // นำข้อมูลด้านบนออก
-  // ---------------------------------------------------------------
-
-  pop() {
-
-    return this.items.pop();
-
-  }
-
-
-  // ---------------------------------------------------------------
-  // ดูข้อมูลด้านบน
-  // ---------------------------------------------------------------
-
-  peek() {
-
-    return this.items[
-      this.items.length - 1
-    ];
-
-  }
-
-
-  // ---------------------------------------------------------------
-  // ตรวจสอบว่า Stack ว่างหรือไม่
-  // ---------------------------------------------------------------
-
-  isEmpty() {
-
-    return (
-      this.items.length === 0
-    );
-
-  }
-
-
-  // ---------------------------------------------------------------
-  // แสดงประวัติ
-  // ล่าสุดอยู่ด้านบน
-  // ---------------------------------------------------------------
-
-  display() {
-
-    return [
-      ...this.items
-    ].reverse();
-
-  }
-
-}
-
-
-// สร้าง Stack
-
-const history =
-  new Stack();
-
-
-// =====================================================================
-// GET /history
-// =====================================================================
-
-app.get(
-  '/history',
-  (req, res) => {
-
-    res.json({
-
-      history:
-        history.display(),
-
-      size:
-        history.items.length
-
-    });
-
-  }
-);
-
-
-// =====================================================================
-// POST /undo
-// Undo ด้วย Stack
-// =====================================================================
-
-app.post(
-  '/history',
-  async (req, res) => {
-    try {
-      const id = Number(req.body.id);
-      if (!Number.isInteger(id) || id <= 0) {
-        return res.status(400).json({ error: 'รหัสเมนูไม่ถูกต้อง' });
-      }
-
-      const meal = await getMealById(id);
-      if (!meal) {
-        return res.status(404).json({ error: 'ไม่พบเมนูอาหารนี้' });
-      }
-
-      history.push({
-        action: 'VIEW',
-        meal,
-        time: new Date().toLocaleTimeString('th-TH')
-      });
-      res.status(201).json({ message: `บันทึกประวัติการดู ${meal.name} แล้ว` });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-);
-
-app.post(
-  '/undo',
-  (req, res) => {
-
-    try {
-
-      // ตรวจสอบ Stack
-
-      if (
-        history.isEmpty()
-      ) {
-
-        return res.status(400).json({
-
-          error:
-            'ไม่มีอะไรให้ย้อนกลับ'
-
-        });
-
-      }
-
-
-      // -------------------------------------------------------------
-      // POP ข้อมูลล่าสุดออกจาก Stack
-      // -------------------------------------------------------------
-
-      const last =
-        history.pop();
-
-
-      res.json({
-
-        message:
-          `ย้อนกลับจาก ${last.meal.name} แล้ว`,
-
-        previousMeal:
-          history.peek()?.meal || null,
-
-        size:
-          history.items.length
-
-      });
-
-    }
-
-    catch (error) {
-
-      res.status(500).json({
-
-        error:
-          error.message
-
-      });
-
-    }
-
-  }
-);
-
-// =====================================================================
 // GET /meal/:id
 // ดึงรายละเอียดเมนูอาหารรายรายการจาก TheMealDB (lookup.php?i=MealID)
 // =====================================================================
@@ -1111,7 +816,7 @@ app.get('/meal/:id', async (req, res) => {
     res.json(meal);
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(502).json({ error: error.message });
   }
 });
 
@@ -1120,42 +825,15 @@ app.get('/meal/:id', async (req, res) => {
 // START SERVER
 // =====================================================================
 
-async function startServer() {
-
-  // โหลดข้อมูลก่อน
-
-  await loadMeals();
-
-
-  // เปิด Server
-
-  app.listen(
-    PORT,
-    () => {
-
-      console.log('');
-      console.log(
-        '===================================='
-      );
-
-      console.log(
-        `Server running at http://localhost:${PORT}`
-      );
-
-      console.log(
-        `จำนวนเมนูที่โหลดได้: ${meals.length}`
-      );
-
-      console.log(
-        '===================================='
-      );
-
-    }
-  );
-
+function startServer() {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 }
 
 
-// เริ่มโปรแกรม
+if (require.main === module) {
+  startServer();
+}
 
-startServer();
+module.exports = app;

@@ -1,7 +1,7 @@
 {
   "name": "801201-week8",
   "version": "1.0.0",
-  "description": "Food Finder meal dashboard with TheMealDB search, filters, sorting, queue, and history",
+  "description": "Food Finder with TheMealDB search, filters, random meals, sorting, queue, stack navigation, and meal cache",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

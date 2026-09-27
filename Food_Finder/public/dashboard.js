@@ -3,6 +3,34 @@ let currentMeals = [];
 let searchBaseMeals = [];
 let sortOrder = 'az';
 
+class Stack {
+  constructor() {
+    this.items = [];
+  }
+
+  push(meal) {
+    this.items.push(meal);
+  }
+
+  pop() {
+    return this.items.pop() ?? null;
+  }
+
+  peek() {
+    return this.items[this.items.length - 1] ?? null;
+  }
+
+  isEmpty() {
+    return this.items.length === 0;
+  }
+
+  size() {
+    return this.items.length;
+  }
+}
+
+const navigationStack = new Stack();
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -19,7 +47,10 @@ function escapeHTML(value) {
 function showError(message) {
   const errorBox = document.getElementById('error');
   window.clearTimeout(showError.timeoutId);
-  errorBox.textContent = message ? `เกิดข้อผิดพลาด: ${message}` : '';
+  const displayMessage = /[\u0e00-\u0e7f]/.test(String(message || ''))
+    ? 'The request could not be completed. Please try again.'
+    : message;
+  errorBox.textContent = displayMessage ? `Something went wrong: ${displayMessage}` : '';
   errorBox.style.display = message ? 'block' : 'none';
   if (message) {
     showError.timeoutId = window.setTimeout(() => {
@@ -42,8 +73,8 @@ function createFilters(meals) {
     if (meal.category && !containsValue(categories, meal.category)) categories.push(meal.category);
     if (meal.area && !containsValue(areas, meal.area)) areas.push(meal.area);
   }
-  fillFilter('categoryFilter', 'ทุก Category', categories);
-  fillFilter('areaFilter', 'ทุก Area', areas);
+  fillFilter('categoryFilter', 'All categories', categories);
+  fillFilter('areaFilter', 'All areas', areas);
 }
 
 function fillFilter(id, label, values) {
@@ -60,11 +91,11 @@ async function loadCategories() {
   try {
     const response = await fetch('/api/categories');
     const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.message || 'โหลด Category ไม่สำเร็จ');
-    fillFilter('categoryFilter', 'ทุก Category', result.data);
+    if (!response.ok || !result.success) throw new Error(result.message || 'Failed to load categories');
+    fillFilter('categoryFilter', 'All categories', result.data);
   } catch (error) {
     console.error(error);
-    if (!allMeals.length) showError('ไม่สามารถโหลด Category ได้');
+    if (!allMeals.length) showError('Unable to load categories');
   }
 }
 
@@ -72,35 +103,35 @@ async function loadAreas() {
   try {
     const response = await fetch('/api/areas');
     const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.message || 'โหลด Area ไม่สำเร็จ');
-    fillFilter('areaFilter', 'ทุก Area', result.data);
+    if (!response.ok || !result.success) throw new Error(result.message || 'Failed to load areas');
+    fillFilter('areaFilter', 'All areas', result.data);
   } catch (error) {
     console.error(error);
-    if (!allMeals.length) showError('ไม่สามารถโหลด Area ได้');
+    if (!allMeals.length) showError('Unable to load areas');
   }
 }
 
 async function loadDashboard() {
   const mealsContainer = document.getElementById('meals');
-  mealsContainer.innerHTML = '<div class="loading"><div class="spinner"></div><p>กำลังโหลดเมนูอาหาร...</p></div>';
+  mealsContainer.innerHTML = '<div class="loading"><div class="spinner"></div><p>Setting the table...</p></div>';
   showError('');
 
   try {
-    const response = await fetch('/meals?sort=selection');
+    const response = await fetch('/api/meals');
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'โหลดข้อมูลไม่สำเร็จ');
+    if (!response.ok) throw new Error(result.message || result.error || 'Failed to load data');
 
     allMeals = Array.isArray(result.data) ? result.data : [];
     searchBaseMeals = [...allMeals];
     currentMeals = [...allMeals];
     if (document.getElementById('resultInfo')) {
-      document.getElementById('resultInfo').textContent = `พบ ${allMeals.length} เมนู`;
+      document.getElementById('resultInfo').textContent = `Found ${allMeals.length} meals`;
     }
     sortAndRender();
-    await Promise.all([updateWatchlist(), updateHistory()]);
+    await updateWatchlist();
   } catch (error) {
-    mealsContainer.innerHTML = `<div class="empty-state"><h3>โหลดข้อมูลไม่สำเร็จ</h3><p>${escapeHtml(error.message)}</p><button onclick="loadDashboard()">ลองใหม่</button></div>`;
-    showError(error.message);
+    mealsContainer.innerHTML = '<div class="empty-state"><div class="empty-icon">🥣</div><h3>We could not load the menu</h3><p>Please try again in a moment.</p><button class="button button-coral" type="button" onclick="loadDashboard()">Try again</button></div>';
+    showError('Unable to load meals. Please try again.');
   }
 }
 
@@ -115,14 +146,14 @@ async function searchMeals() {
   try {
     const response = await fetch(`/api/search?q=${encodeURIComponent(keyword)}`);
     const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.message || 'ค้นหาไม่สำเร็จ');
+    if (!response.ok || !result.success) throw new Error(result.message || 'Search failed');
     searchBaseMeals = Array.isArray(result.data) ? result.data : [];
     applyCurrentFilters();
     document.getElementById('resultInfo').textContent =
-      `พบ ${currentMeals.length} เมนู จากคำค้น "${result.keyword}"`;
+      `Found ${currentMeals.length} meals for "${result.keyword}"`;
   } catch (error) {
     console.error(error);
-    showError(error.message || 'เกิดข้อผิดพลาดในการค้นหา');
+    showError(error.message || 'An error occurred while searching');
   }
 }
 
@@ -147,16 +178,16 @@ async function loadSearchResults() {
   try {
     const response = await fetch(`/api/meals?${params.toString()}`);
     const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.message || 'โหลดข้อมูลไม่สำเร็จ');
+    if (!response.ok || !result.success) throw new Error(result.message || 'Failed to load data');
     searchBaseMeals = Array.isArray(result.data) ? result.data : [];
     currentMeals = [...searchBaseMeals];
     document.getElementById('resultInfo').textContent = result.count === 0
-      ? (result.message || 'ไม่พบเมนูอาหารตามเงื่อนไขที่ค้นหา')
-      : `พบ ${result.count} เมนู`;
+      ? 'No meals found for these filters.'
+      : `Found ${result.count} meals`;
     sortAndRender();
   } catch (error) {
     console.error(error);
-    showError(error.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    showError(error.message || 'An error occurred while loading data');
   }
 }
 
@@ -181,7 +212,7 @@ function applyCurrentFilters() {
       (!area || meal.area === area);
   });
   if (document.getElementById('resultInfo')) {
-    document.getElementById('resultInfo').textContent = `พบ ${currentMeals.length} เมนู`;
+    document.getElementById('resultInfo').textContent = `Found ${currentMeals.length} meals`;
   }
   sortAndRender();
 }
@@ -209,43 +240,13 @@ function selectionSort(meals, descending = false) {
   return sortedMeals;
 }
 
-function insertionSort(meals, descending = false) {
-  const sortedMeals = [...meals];
-  for (let index = 1; index < sortedMeals.length; index++) {
-    const key = sortedMeals[index];
-    let cursor = index - 1;
-    while (cursor >= 0 && compareMeals(sortedMeals[cursor], key, descending) > 0) {
-      sortedMeals[cursor + 1] = sortedMeals[cursor];
-      cursor--;
-    }
-    sortedMeals[cursor + 1] = key;
-  }
-  return sortedMeals;
-}
-
-function bubbleSort(meals, descending = false) {
-  const sortedMeals = [...meals];
-  for (let index = 0; index < sortedMeals.length - 1; index++) {
-    for (let cursor = 0; cursor < sortedMeals.length - 1 - index; cursor++) {
-      if (compareMeals(sortedMeals[cursor], sortedMeals[cursor + 1], descending) > 0) {
-        [sortedMeals[cursor], sortedMeals[cursor + 1]] = [sortedMeals[cursor + 1], sortedMeals[cursor]];
-      }
-    }
-  }
-  return sortedMeals;
-}
-
 function sortAndRender(meals = currentMeals) {
-  const algorithmSelect = document.getElementById('algo');
-  const algorithm = algorithmSelect ? algorithmSelect.value : 'selection';
   const descending = sortOrder === 'za';
   const start = performance.now();
-  if (algorithm === 'insertion') currentMeals = insertionSort(meals, descending);
-  else if (algorithm === 'bubble') currentMeals = bubbleSort(meals, descending);
-  else currentMeals = selectionSort(meals, descending);
+  currentMeals = selectionSort(meals, descending);
   const elapsed = (performance.now() - start).toFixed(3);
   document.getElementById('sortInfo').textContent =
-    `DSA Sort · Selection Sort · ${currentMeals.length} เมนู · ${sortOrder.toUpperCase()} · ${elapsed} ms`;
+    `Selection Sort · ${sortOrder.toUpperCase()} · ${elapsed} ms`;
   renderMeals();
 }
 
@@ -262,25 +263,24 @@ function sortZA() {
 function renderMeals() {
   const container = document.getElementById('meals');
   if (currentMeals.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🍽️</div><h3>ไม่พบเมนูอาหาร</h3><p>ลองเปลี่ยนคำค้นหา หรือเลือก Filter ใหม่</p></div>';
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🍽️</div><h3>No meals found</h3><p>Try another search or choose different filters.</p></div>';
     updateSortInfo();
     return;
   }
 
   container.innerHTML = currentMeals.map(meal => `
-    <article class="meal-card">
+    <article class="meal-card" role="link" tabindex="0" aria-label="Open ${escapeHtml(meal.name)} details" onclick="openDetail(${Number(meal.id)})" onkeydown="if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openDetail(${Number(meal.id)}); }">
       <div class="meal-image-wrapper">
         <img src="${escapeHtml(meal.image)}" alt="${escapeHtml(meal.name)}" class="meal-image" loading="lazy">
       </div>
       <div class="meal-content">
         <h3 class="meal-name">${escapeHtml(meal.name)}</h3>
         <div class="meal-meta">
-          <span class="tag">${escapeHtml(meal.category || 'ไม่ระบุ Category')}</span>
-          <span class="tag">${escapeHtml(meal.area || 'ไม่ระบุ Area')}</span>
+          <span class="tag">${escapeHtml(meal.category || 'Uncategorized')}</span>
+          <span class="tag area-tag">${escapeHtml(meal.area || 'Area unavailable')}</span>
         </div>
         <div class="meal-actions">
-          <button class="primary" onclick="addToQueue(${Number(meal.id)})">+ เพิ่มเข้าคิว</button>
-          <button onclick="openDetail(${Number(meal.id)})">รายละเอียด</button>
+          <button class="button button-coral" type="button" onclick="event.stopPropagation(); addToQueue(${Number(meal.id)})">+ Add to Queue</button>
         </div>
       </div>
     </article>
@@ -291,71 +291,99 @@ function renderMeals() {
 function updateSortInfo() {
   const orderLabel = sortOrder === 'az' ? 'A-Z' : 'Z-A';
   document.getElementById('sortInfo').textContent =
-    `DSA Sort · Selection Sort · ${currentMeals.length} เมนู · เรียง ${orderLabel}`;
+    `Selection Sort · ${orderLabel}`;
 }
 
-async function openDetail(mealId) {
+async function openDetail(mealId, addToStack = true) {
   const id = Number(mealId);
-  const meal = await fetchAndRenderDetail(id);
+  const meal = await fetchMealDetail(id);
   if (!meal) return;
-
-  try {
-    const response = await fetch('/history', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'บันทึกประวัติการดูไม่สำเร็จ');
-    await updateHistory();
-  } catch (error) {
-    showError(error.message);
+  if (addToStack && navigationStack.peek()?.id !== meal.id) {
+    navigationStack.push(meal);
   }
+  renderDetail(meal);
 }
 
 async function showMealDetail(mealId) {
   await openDetail(mealId);
 }
 
-async function fetchAndRenderDetail(mealId) {
+async function fetchMealDetail(mealId) {
   try {
-    const response = await fetch(`/meal/${encodeURIComponent(mealId)}`);
-    const meal = await response.json();
-    if (!response.ok) throw new Error(meal.error || 'ไม่สามารถดึงข้อมูลรายละเอียดได้');
-
-    const ingredients = Array.isArray(meal.ingredients) ? meal.ingredients : [];
-    document.getElementById('recipeDetailContent').innerHTML = `
-      <img class="detail-img" src="${escapeHtml(meal.image)}" alt="${escapeHtml(meal.name)}">
-      <h2 class="detail-title">${escapeHtml(meal.name)}</h2>
-      <span>Meal ID: ${escapeHtml(meal.id || mealId)}</span>
-      <div class="detail-badge-group">
-        <span class="detail-badge">Category: ${escapeHtml(meal.category || 'ไม่ระบุ')}</span>
-        <span class="detail-badge">Area: ${escapeHtml(meal.area || 'ไม่ระบุ')}</span>
-      </div>
-      <section class="ingredients-section">
-        <h3 class="ingredients-heading">Ingredients (ส่วนผสม)</h3>
-        <ul class="ingredients-list">
-          ${ingredients.map(item => `<li><strong>${escapeHtml(item.ingredient)}</strong>${item.measure ? ` - ${escapeHtml(item.measure)}` : ''}</li>`).join('')}
-        </ul>
-      </section>
-      <h3>Instructions (วิธีทำ)</h3>
-      <div class="instructions-text">${escapeHtml(meal.instructions || '')}</div>
-      <div class="toolbar">
-        <button class="primary" onclick="addToQueue(${Number(meal.id || mealId)})">❤️ เพิ่มเข้ารายการที่บันทึกไว้</button>
-        <button onclick="goBack()">← กลับ</button>
-      </div>
-    `;
-    document.getElementById('dashboardView').style.display = 'none';
-    document.getElementById('detailView').style.display = 'block';
-    return meal;
+    const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}`);
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Unable to load meal details');
+    }
+    return result.data;
   } catch (error) {
     showError(error.message);
     return null;
   }
 }
 
-async function goBack() {
-  await undo();
+function renderDetail(meal) {
+    const ingredients = Array.isArray(meal.ingredients) ? meal.ingredients : [];
+    document.getElementById('recipeDetailContent').innerHTML = `
+      <img class="detail-img" src="${escapeHtml(meal.image)}" alt="${escapeHtml(meal.name)}">
+      <h2 class="detail-title">${escapeHtml(meal.name)}</h2>
+      <span class="detail-id">Meal ID: ${escapeHtml(meal.id)}</span>
+      <div class="detail-badge-group">
+        <span class="detail-badge">Category: ${escapeHtml(meal.category || 'Not specified')}</span>
+        <span class="detail-badge area-badge">Area: ${escapeHtml(meal.area || 'Not specified')}</span>
+      </div>
+      <section class="detail-section">
+        <h3>Ingredients</h3>
+        <ul class="ingredients-list">
+          ${ingredients.map(item => `<li><strong>${escapeHtml(item.ingredient)}</strong>${item.measure ? ` - ${escapeHtml(item.measure)}` : ''}</li>`).join('')}
+        </ul>
+      </section>
+      <section class="detail-section">
+        <h3>Instructions</h3>
+        <div class="instructions-text">${escapeHtml(meal.instructions || 'No instructions are available for this meal.')}</div>
+      </section>
+      <div class="detail-actions">
+        <button class="button button-coral" type="button" onclick="addToQueue(${Number(meal.id)})">+ Add to Queue</button>
+      </div>
+    `;
+    document.getElementById('dashboardView').style.display = 'none';
+    document.getElementById('detailView').style.display = 'block';
+}
+
+async function randomMeal() {
+  try {
+    const response = await fetch('/api/random');
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Failed to get a random meal');
+    }
+    if (navigationStack.peek()?.id !== result.data.id) {
+      navigationStack.push(result.data);
+    }
+    renderDetail(result.data);
+    showError('');
+  } catch (error) {
+    showError(error.message);
+  }
+}
+
+function goBack() {
+  if (navigationStack.isEmpty()) {
+    document.getElementById('detailView').style.display = 'none';
+    document.getElementById('dashboardView').style.display = 'block';
+    return;
+  }
+
+  if (navigationStack.size() > 1) {
+    navigationStack.pop();
+    const previousMeal = navigationStack.peek();
+    renderDetail(previousMeal);
+    return;
+  }
+
+  navigationStack.pop();
+  document.getElementById('detailView').style.display = 'none';
+  document.getElementById('dashboardView').style.display = 'block';
 }
 
 async function addToQueue(id) {
@@ -366,9 +394,9 @@ async function addToQueue(id) {
       body: JSON.stringify({ id })
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'เพิ่มเมนูเข้าคิวไม่สำเร็จ');
+    if (!response.ok) throw new Error(result.error || 'Failed to add meal to queue');
     showError('');
-    await Promise.all([updateWatchlist(), updateHistory()]);
+    await updateWatchlist();
   } catch (error) {
     showError(error.message);
   }
@@ -378,7 +406,7 @@ async function processQueue() {
   try {
     const response = await fetch('/watchlist/process', { method: 'DELETE' });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'เลือกเมนูถัดไปไม่สำเร็จ');
+    if (!response.ok) throw new Error(result.error || 'Failed to select the next meal');
     showError('');
     await updateWatchlist();
     await openDetail(result.meal.id);
@@ -387,51 +415,28 @@ async function processQueue() {
   }
 }
 
-async function undo() {
-  try {
-    const response = await fetch('/undo', { method: 'POST' });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'ย้อนรายการไม่สำเร็จ');
-    showError('');
-    await updateHistory();
-    if (result.previousMeal) {
-      await fetchAndRenderDetail(result.previousMeal.id);
-    } else {
-      document.getElementById('detailView').style.display = 'none';
-      document.getElementById('dashboardView').style.display = 'block';
-    }
-  } catch (error) {
-    showError(error.message);
-  }
-}
-
 async function updateWatchlist() {
   const response = await fetch('/watchlist');
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'โหลดคิวไม่สำเร็จ');
+  if (!response.ok) throw new Error(data.error || 'Failed to load queue');
   document.getElementById('queueSize').textContent = data.size;
+  document.getElementById('processQueueButton').disabled = data.size === 0;
   const list = document.getElementById('watchlist');
   list.innerHTML = data.items.length
-    ? data.items.map((item, index) => `<li>${index + 1}. ${escapeHtml(item.name)}<span>${escapeHtml(item.area || '')}</span></li>`).join('')
-    : '<li class="empty">ไม่มีคิวอาหารในขณะนี้</li>';
-}
-
-async function updateHistory() {
-  const response = await fetch('/history');
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'โหลดประวัติไม่สำเร็จ');
-  const list = document.getElementById('history');
-  list.innerHTML = data.history.length
-    ? data.history.map(item => `<li><button class="history-item" onclick="openDetail(${Number(item.meal.id)})">${escapeHtml(item.meal.name)}</button><span>${escapeHtml(item.time)}</span></li>`).join('')
-    : '<li class="empty">ยังไม่มีประวัติการดู</li>';
+    ? data.items.map((item, index) => `
+      <li class="queue-item">
+        <span class="queue-number">${String(index + 1).padStart(2, '0')}</span>
+        <img class="queue-image" src="${escapeHtml(item.image)}" alt="" loading="lazy">
+        <span class="queue-meal">
+          <strong>${escapeHtml(item.name)}</strong>
+          <span class="queue-meta">${escapeHtml(item.category || 'Uncategorized')} · ${escapeHtml(item.area || 'Area unavailable')}</span>
+        </span>
+      </li>`).join('')
+    : '<li class="queue-empty"><span>🍽️</span>Your queue is waiting for a meal.</li>';
 }
 
 async function loadQueue() {
   await updateWatchlist();
-}
-
-async function loadHistory() {
-  await updateHistory();
 }
 
 function resetFilter() {
@@ -443,8 +448,9 @@ function resetFilter() {
   showError('');
   document.getElementById('detailView').style.display = 'none';
   document.getElementById('dashboardView').style.display = 'block';
+  while (!navigationStack.isEmpty()) navigationStack.pop();
   sortAndRender();
-  document.getElementById('resultInfo').textContent = `พบ ${allMeals.length} เมนู`;
+  document.getElementById('resultInfo').textContent = `Found ${allMeals.length} meals`;
 }
 
 async function clearSearch() {
