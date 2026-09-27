@@ -12,6 +12,32 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const THEMEALDB_BASE = 'https://www.themealdb.com/api/json/v1/1';
 
+class Stack {
+  constructor() {
+    this.items = [];
+  }
+
+  push(item) {
+    this.items.push(item);
+  }
+
+  pop() {
+    return this.items.pop();
+  }
+
+  peek() {
+    return this.items[this.items.length - 1];
+  }
+
+  isEmpty() {
+    return this.items.length === 0;
+  }
+
+  size() {
+    return this.items.length;
+  }
+}
+
 
 // =====================================================================
 // MIDDLEWARE
@@ -300,7 +326,7 @@ async function ensureMealsLoaded() {
 // 1. SELECTION SORT
 // =====================================================================
 
-function selectionSort(arr) {
+function selectionSort(arr, descending = false) {
 
   const a =
     [...arr];
@@ -322,10 +348,13 @@ function selectionSort(arr) {
       j++
     ) {
 
-      if (
-        a[j].name.toLowerCase() <
-        a[minIndex].name.toLowerCase()
-      ) {
+      const comparison = String(a[j].name || '').localeCompare(
+        String(a[minIndex].name || ''),
+        undefined,
+        { sensitivity: 'base' }
+      );
+
+      if (descending ? comparison > 0 : comparison < 0) {
 
         minIndex =
           j;
@@ -368,10 +397,12 @@ app.get(
 
       await ensureMealsLoaded();
 
+      const sortOrder = String(req.query.sort || req.query.order || '').toLowerCase();
+      const descending = sortOrder === 'za' || sortOrder === 'desc';
       const start =
         performance.now();
 
-      const sortedMeals = selectionSort(meals);
+      const sortedMeals = selectionSort(meals, descending);
 
       const end =
         performance.now();
@@ -520,7 +551,9 @@ app.get('/api/meals', async (req, res) => {
       result = result.filter(meal => meal.strArea === area);
     }
 
-    const normalized = result.map(normalizeMeal);
+    const sortOrder = String(req.query.sort || req.query.order || '').toLowerCase();
+    const descending = sortOrder === 'za' || sortOrder === 'desc';
+    const normalized = selectionSort(result.map(normalizeMeal), descending);
     res.json({
       success: true,
       count: normalized.length,
@@ -800,25 +833,6 @@ app.delete(
 
   }
 );
-
-
-// =====================================================================
-// GET /meal/:id
-// ดึงรายละเอียดเมนูอาหารรายรายการจาก TheMealDB (lookup.php?i=MealID)
-// =====================================================================
-app.get('/meal/:id', async (req, res) => {
-  try {
-    const meal = await getMealById(req.params.id);
-    if (!meal) {
-      return res.status(404).json({ error: 'ไม่พบรายละเอียดเมนูอาหารนี้' });
-    }
-
-    res.json(meal);
-
-  } catch (error) {
-    res.status(502).json({ error: error.message });
-  }
-});
 
 
 // =====================================================================
