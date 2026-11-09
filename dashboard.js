@@ -336,9 +336,8 @@ function renderMeals(meals) {
         </div>
       </div>
 
-      <button onclick="addToQueue(${Number(meal.id)})">
-        + เพิ่มคิว
-      </button>
+      <button onclick="openMealDetail(${Number(meal.id)})">รายละเอียด</button>
+      <button onclick="addToQueue(${Number(meal.id)})">+ เพิ่มคิว</button>
     `;
 
     container.appendChild(card);
@@ -374,63 +373,90 @@ async function addToQueue(id) {
   }
 }
 
+// Peek: เปิดรายละเอียดหัวคิวโดยไม่ Dequeue
+async function peekNextMeal() {
+  try {
+    const response = await fetch('/watchlist');
+    const result = await response.json();
+    if (!result.next) {
+      showError('Queue ว่าง กรุณาเพิ่มเมนูอาหารก่อน');
+      return;
+    }
+    await openMealDetail(result.next.id);
+  } catch (error) { showError(error.message || 'ดูเมนูถัดไปไม่สำเร็จ'); }
+}
+
+// นำเมนูหัวคิวออกจริง (Dequeue) — เรียกได้จากปุ่มนำออกที่หัวคิว
 async function processQueue() {
   try {
-    const response = await fetch('/watchlist/process', {
-      method: 'DELETE'
-    });
-
+    const response = await fetch('/watchlist/process', { method: 'DELETE' });
     const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'นำเมนูออกไม่สำเร็จ');
+    await loadQueue(); await loadHistory();
+  } catch (error) { showError(error.message); }
+}
 
-    if (!response.ok) {
-      throw new Error(result.error || 'เลือกเมนูไม่สำเร็จ');
-    }
-
-    await loadQueue();
-    await loadHistory();
-
-  } catch (error) {
-    console.error(error);
-    showError(error.message);
-  }
+async function removeQueueItem(id) {
+  try {
+    const response = await fetch(`/watchlist/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'นำออกจาก Queue ไม่สำเร็จ');
+    await loadQueue(); await loadHistory();
+  } catch (error) { showError(error.message); }
 }
 
 async function loadQueue() {
   try {
     const response = await fetch('/watchlist');
     const result = await response.json();
-
     const list = document.getElementById('watchlist');
-    const size = document.getElementById('queueSize');
-
-    size.textContent = result.size;
-
+    document.getElementById('queueSize').textContent = result.size;
     list.innerHTML = '';
-
-    if (result.items.length === 0) {
-      list.innerHTML = `
-        <li class="empty">
-          ยังไม่มีเมนูในคิว
-        </li>
-      `;
+    if (!result.items || result.items.length === 0) {
+      list.innerHTML = `<li class="empty">Queue ว่าง 🍽️<br>ค้นหาเมนูแล้วกด “เพิ่มคิว” เพื่อเริ่มต้น</li>`;
       return;
     }
-
     result.items.forEach((item, index) => {
       const li = document.createElement('li');
-
+      li.className = 'queue-item';
       li.innerHTML = `
-        ${index + 1}. ${escapeHTML(item.name)}
-        <span>${escapeHTML(item.area || '')}</span>
-      `;
-
+        <strong>${index + 1}</strong>
+        <img src="${escapeHTML(item.image || '')}" alt="${escapeHTML(item.name)}">
+        <div class="queue-info">
+          <button onclick="openMealDetail(${Number(item.id)})"><strong>${escapeHTML(item.name)}</strong></button>
+          <div class="meta">${index === 0 ? 'Front (หัวคิว)' : `ลำดับที่ ${index + 1}`}</div>
+        </div>
+        <div class="queue-actions">
+          <button onclick="openMealDetail(${Number(item.id)})">ดูรายละเอียด</button>
+          <button class="warn" onclick="removeQueueItem(${Number(item.id)})">นำออก</button>
+        </div>`;
       list.appendChild(li);
     });
-
-  } catch (error) {
-    console.error(error);
-  }
+  } catch (error) { console.error(error); }
 }
+
+// เปิด Meal Detail โดยไม่แก้ไข Queue
+async function openMealDetail(id) {
+  const modal = document.getElementById('mealDetailModal');
+  const content = document.getElementById('mealDetailContent');
+  modal.style.display = 'flex';
+  content.innerHTML = '<p class="empty-message">กำลังโหลดรายละเอียด...</p>';
+  try {
+    const response = await fetch(`/api/meal/${encodeURIComponent(id)}`);
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'โหลดรายละเอียดไม่สำเร็จ');
+    const meal = result.data;
+    const ingredients = (meal.ingredients || []).map(x => `<li>${escapeHTML(x.ingredient)} — ${escapeHTML(x.measure)}</li>`).join('');
+    content.innerHTML = `
+      <img src="${escapeHTML(meal.image || '')}" alt="${escapeHTML(meal.name)}">
+      <h3>${escapeHTML(meal.name)}</h3>
+      <p>Category: ${escapeHTML(meal.category || '-')} | Area: ${escapeHTML(meal.area || '-')}</p>
+      <h4>Ingredients</h4><ul>${ingredients || '<li>ไม่มีข้อมูลวัตถุดิบ</li>'}</ul>
+      <h4>วิธีทำ</h4><p style="white-space:pre-line">${escapeHTML(meal.instructions || 'ไม่มีข้อมูลวิธีทำ')}</p>`;
+  } catch (error) { content.innerHTML = `<p class="empty-message">${escapeHTML(error.message)}</p>`; }
+}
+function closeMealDetail() { document.getElementById('mealDetailModal').style.display = 'none'; }
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMealDetail(); });
 
 // =====================================================================
 // STACK / HISTORY
@@ -457,10 +483,15 @@ async function loadHistory() {
     result.history.forEach(item => {
       const li = document.createElement('li');
 
+      const displayPosition = result.history.indexOf(item); // 0 คือรายการล่าสุด
       li.innerHTML = `
-        ${escapeHTML(item.action)} -
-        ${escapeHTML(item.meal.name)}
-        <span>${escapeHTML(item.time)}</span>
+        <div class="history-row">
+          <div class="history-info">
+            <strong>${escapeHTML(item.action)} — ${escapeHTML(item.meal.name)}</strong>
+            <small>${escapeHTML(item.time)}</small>
+          </div>
+          <button class="warn" onclick="undoSelected(${displayPosition})">ย้อนรายการนี้</button>
+        </div>
       `;
 
       list.appendChild(li);
@@ -468,6 +499,19 @@ async function loadHistory() {
 
   } catch (error) {
     console.error(error);
+  }
+}
+
+async function undoSelected(position) {
+  if (!confirm('ต้องการย้อนประวัติรายการนี้ใช่ไหม?')) return;
+  try {
+    const response = await fetch(`/undo/${position}`, { method: 'POST' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'ย้อนรายการไม่สำเร็จ');
+    await loadQueue();
+    await loadHistory();
+  } catch (error) {
+    showError(error.message);
   }
 }
 

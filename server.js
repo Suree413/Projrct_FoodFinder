@@ -462,6 +462,35 @@ app.get('/api/meals', async (req, res) => {
 });
 
 // =====================================================================
+// MEAL DETAIL API
+// GET /api/meal/:id
+// =====================================================================
+
+app.get('/api/meal/:id', async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    if (!/^\d+$/.test(id)) {
+      return res.status(400).json({ error: 'Meal ID ไม่ถูกต้อง' });
+    }
+    const data = await fetchJSON(`${THEMEALDB_BASE}/lookup.php?i=${encodeURIComponent(id)}`);
+    if (!data.meals || !data.meals[0]) {
+      return res.status(404).json({ error: 'ไม่พบรายละเอียดเมนูนี้' });
+    }
+    const meal = normalizeMeal(data.meals[0]);
+    meal.ingredients = Array.from({ length: 20 }, (_, i) => {
+      const ingredient = data.meals[0][`strIngredient${i + 1}`];
+      const measure = data.meals[0][`strMeasure${i + 1}`];
+      return ingredient && ingredient.trim()
+        ? { ingredient: ingredient.trim(), measure: (measure || '').trim() }
+        : null;
+    }).filter(Boolean);
+    res.json({ data: meal });
+  } catch (error) {
+    res.status(500).json({ error: 'โหลดรายละเอียดเมนูไม่สำเร็จ' });
+  }
+});
+
+// =====================================================================
 // QUEUE
 // =====================================================================
 
@@ -505,37 +534,49 @@ app.get('/watchlist', (req, res) => {
 // POST /watchlist
 // =====================================================================
 
-app.post('/watchlist', (req, res) => {
+app.post('/watchlist', async (req, res) => {
   try {
     const id = Number(req.body.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'Meal ID ไม่ถูกต้อง' });
+    }
 
-    const meal =
-      meals.find(item => item.id === id);
+    // ป้องกันเมนูซ้ำด้วย Meal ID
+    if (watchlist.items.some(item => Number(item.id) === id)) {
+      return res.status(409).json({ error: 'เมนูนี้อยู่ใน Queue แล้ว' });
+    }
 
+    let meal = meals.find(item => Number(item.id) === id);
+    // รองรับเมนูจาก Search/Filter ที่ไม่ได้อยู่ในรายการเริ่มต้น
     if (!meal) {
-      return res.status(404).json({
-        error: 'ไม่พบเมนูอาหารนี้ในรายการเริ่มต้น'
-      });
+      const data = await fetchJSON(`${THEMEALDB_BASE}/lookup.php?i=${id}`);
+      if (!data.meals || !data.meals[0]) {
+        return res.status(404).json({ error: 'ไม่พบเมนูอาหารนี้' });
+      }
+      meal = normalizeMeal(data.meals[0]);
     }
 
     watchlist.enqueue(meal);
-
-    history.push({
-      action: 'ADD',
-      meal,
-      time: new Date().toLocaleTimeString('th-TH')
-    });
-
-    res.status(201).json({
-      message: `เพิ่ม ${meal.name} เข้าคิวแล้ว`,
-      size: watchlist.size()
-    });
-
+    history.push({ action: 'ADD', meal, time: new Date().toLocaleTimeString('th-TH') });
+    res.status(201).json({ message: `เพิ่ม ${meal.name} เข้าคิวแล้ว`, size: watchlist.size() });
   } catch (error) {
-    res.status(500).json({
-      error: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
+});
+
+// =====================================================================
+// DELETE /watchlist/:id — นำเมนูที่เลือกออกจากคิว
+// =====================================================================
+
+app.delete('/watchlist/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const index = watchlist.items.findIndex(item => Number(item.id) === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'ไม่พบเมนูนี้ใน Queue' });
+  }
+  const [meal] = watchlist.items.splice(index, 1);
+  history.push({ action: 'REMOVE', meal, time: new Date().toLocaleTimeString('th-TH') });
+  res.json({ message: `นำ ${meal.name} ออกจากคิวแล้ว`, size: watchlist.size() });
 });
 
 // =====================================================================
@@ -614,6 +655,35 @@ app.get('/history', (req, res) => {
 });
 
 // =====================================================================
+// POST /undo/:position — เลือกย้อนประวัติรายการใดก็ได้ (position 0 = ล่าสุด)
+// =====================================================================
+app.post('/undo/:position', (req, res) => {
+  try {
+    const position = Number(req.params.position);
+    if (!Number.isInteger(position) || position < 0 || position >= history.items.length) {
+      return res.status(404).json({ error: 'ไม่พบรายการประวัติที่เลือก' });
+    }
+    const stackIndex = history.items.length - 1 - position;
+    const selected = history.items.splice(stackIndex, 1)[0];
+    applyUndo(selected);
+    res.json({ message: `ย้อน ${selected.action} ของ ${selected.meal.name} แล้ว`, size: watchlist.size() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+function applyUndo(entry) {
+  if (entry.action === 'ADD') {
+    const index = watchlist.items.findIndex(item => Number(item.id) === Number(entry.meal.id));
+    if (index !== -1) watchlist.items.splice(index, 1);
+  } else if (entry.action === 'COOK') {
+    if (!watchlist.items.some(item => Number(item.id) === Number(entry.meal.id))) watchlist.items.unshift(entry.meal);
+  } else if (entry.action === 'REMOVE') {
+    if (!watchlist.items.some(item => Number(item.id) === Number(entry.meal.id))) watchlist.enqueue(entry.meal);
+  }
+}
+
+// =====================================================================
 // POST /undo
 // =====================================================================
 
@@ -626,20 +696,7 @@ app.post('/undo', (req, res) => {
     }
 
     const last = history.pop();
-
-    if (last.action === 'ADD') {
-      const index = watchlist.items.findIndex(
-        item => item.id === last.meal.id
-      );
-
-      if (index !== -1) {
-        watchlist.items.splice(index, 1);
-      }
-    }
-
-    else if (last.action === 'COOK') {
-      watchlist.items.unshift(last.meal);
-    }
+    applyUndo(last);
 
     res.json({
       message:
